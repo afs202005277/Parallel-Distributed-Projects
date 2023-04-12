@@ -10,10 +10,9 @@ public class Server {
         serverSocketChannel.socket().bind(new InetSocketAddress(8080));
 
         Authentication auth = new Authentication("src/tokens.txt");
-
+        SocketChannel socketChannel = serverSocketChannel.accept();
+        System.out.println("Client connected!");
         while (true) {
-            SocketChannel socketChannel = serverSocketChannel.accept();
-            System.out.println("Client connected!");
             ByteBuffer buffer = ByteBuffer.allocate(4096);
             socketChannel.read(buffer);
             buffer.flip();
@@ -32,11 +31,19 @@ public class Server {
                 buffer.put(token.getBytes());
                 buffer.flip();
                 socketChannel.write(buffer);
+            } else if (message.startsWith("logout")) {
+                String[] parts = message.split(" ");
+                String token = parts[1];
+                auth.invalidateToken(token);
+                buffer.clear();
+                buffer.put("Success!".getBytes());
+                buffer.flip();
+                socketChannel.write(buffer);
+                socketChannel.close();
+                break;
             } else {
                 socketChannel.write(buffer);
             }
-
-            socketChannel.close();
         }
     }
 }

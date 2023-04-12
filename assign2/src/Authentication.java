@@ -32,9 +32,18 @@ public class Authentication {
         return token;
     }
 
-    public synchronized void invalidateToken(String user) throws IOException {
-        tokens.remove(user);
-        saveTokensToFile();
+    public synchronized void invalidateToken(String token) throws IOException {
+        String username = null;
+        for (String key : tokens.keySet()) {
+            if (tokens.get(key).equals(token)) {
+                username = key;
+                break;
+            }
+        }
+        if (username != null) {
+            tokens.remove(username);
+            saveTokensToFile();
+        }
     }
 
     private void saveTokensToFile() throws IOException {
