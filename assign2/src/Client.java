@@ -7,9 +7,8 @@ import java.nio.channels.SocketChannel;
 public class Client {
     public static void main(String[] args) throws IOException {
         SocketChannel socketChannel = SocketChannel.open();
-        socketChannel.connect(new InetSocketAddress("192.168.56.1", 8080));
-        String ipv4 = InetAddress.getLocalHost().getHostAddress();
-        String message = ipv4;
+        socketChannel.connect(new InetSocketAddress("localhost", 8080));
+        String message = socketChannel.getLocalAddress().toString();
         ByteBuffer buffer = ByteBuffer.wrap(message.getBytes());
         socketChannel.write(buffer);
         buffer.clear();
