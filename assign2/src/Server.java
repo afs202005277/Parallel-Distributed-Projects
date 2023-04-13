@@ -1,5 +1,6 @@
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.SocketException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
@@ -42,13 +43,20 @@ public class Server {
                     SocketChannel socketChannel = (SocketChannel) key.channel();
                     ByteBuffer buffer = ByteBuffer.allocate(BUFFER_SIZE);
                     int numRead = -1;
-                    if (socketChannel.isOpen())
-                        numRead = socketChannel.read(buffer);
-                    if (numRead == -1) {
-                        // Client disconnected
+                    boolean disconected = false;
+                    if (socketChannel.isOpen()) {
+                        try {
+                            numRead = socketChannel.read(buffer);
+                        } catch (SocketException socketException) {
+                            disconected = true;
+                        }
+                    }
+
+                    if (numRead == -1 || disconected) {
+                        auth.invalidateToken(clientTokens.get(socketChannel));
+                        System.out.println("Client disconnected: " + socketChannel.getRemoteAddress());
                         key.cancel();
                         socketChannel.close();
-                        System.out.println("Client disconnected: " + socketChannel.getRemoteAddress());
                     } else {
                         buffer.flip();
                         String message = new String(buffer.array(), 0, buffer.limit()).trim();
