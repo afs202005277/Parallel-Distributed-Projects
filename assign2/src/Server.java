@@ -20,7 +20,7 @@ public class Server {
         Selector selector = Selector.open();
         serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT);
 
-        Authentication auth = new Authentication("src/tokens.txt");
+        Authentication auth = new Authentication("src/tokens.txt", "src/users.txt");
         Map<SocketChannel, String> clientTokens = new HashMap<>();
 
         while (true) {
@@ -55,16 +55,30 @@ public class Server {
                         buffer.clear();
                         System.out.println("Message received from " + socketChannel.getRemoteAddress() + ": " + message);
 
-                        // Check if the message is a login request
-                        if (message.startsWith("login")) {
+                        if (message.startsWith("register")){
                             String[] parts = message.split(" ");
                             String username = parts[1];
                             String password = parts[2]; // to be done later
-
-                            String token = auth.createToken(username);
-                            clientTokens.put(socketChannel, token);
-
-                            buffer.put(token.getBytes());
+                            String res = auth.registerUser(username, password);
+                            if (!res.contains("Error:"))
+                                clientTokens.put(socketChannel, res);
+                            buffer.put(res.getBytes());
+                            buffer.flip();
+                            socketChannel.write(buffer);
+                            buffer.clear();
+                        } else if (message.startsWith("login")) {
+                            String res;
+                            String[] parts = message.split(" ");
+                            String username = parts[1];
+                            String password = parts[2];
+                            if (!auth.isLoggedIn(username)){
+                                res = auth.login(username, password);
+                                if (!res.contains("Error:"))
+                                    clientTokens.put(socketChannel, res);
+                            } else{
+                                res = "Error: You are already logged in!";
+                            }
+                            buffer.put(res.getBytes());
                             buffer.flip();
                             socketChannel.write(buffer);
                             buffer.clear();
@@ -72,16 +86,25 @@ public class Server {
                         } else if (message.startsWith("logout")) {
                             String[] parts = message.split(" ");
                             String token = parts[1];
-                            auth.invalidateToken(token);
-                            clientTokens.remove(socketChannel);
+                            String answer;
+                            boolean canceled = false;
+                            if (clientTokens.containsValue(token)){
+                                auth.invalidateToken(token);
+                                clientTokens.remove(socketChannel);
+                                answer = "Success!";
+                                key.cancel();
+                                canceled = true;
+                                System.out.println("Client disconnected: " + socketChannel.getRemoteAddress());
+                            } else{
+                                answer = "Invalid token!";
+                            }
                             buffer.put(new byte[BUFFER_SIZE]);
-                            buffer.put(0, "Success!".getBytes());
+                            buffer.put(0, answer.getBytes());
                             buffer.flip();
                             socketChannel.write(buffer);
                             buffer.clear();
-                            key.cancel();
-                            System.out.println("Client disconnected: " + socketChannel.getRemoteAddress());
-                            socketChannel.close();
+                            if (canceled)
+                                socketChannel.close();
 
                         } else {
                             // Echo back the received message
