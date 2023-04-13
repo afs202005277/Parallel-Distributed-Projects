@@ -52,6 +52,7 @@ public class Server {
                     } else {
                         buffer.flip();
                         String message = new String(buffer.array(), 0, buffer.limit()).trim();
+                        buffer.clear();
                         System.out.println("Message received from " + socketChannel.getRemoteAddress() + ": " + message);
 
                         // Check if the message is a login request
@@ -63,31 +64,31 @@ public class Server {
                             String token = auth.createToken(username);
                             clientTokens.put(socketChannel, token);
 
-                            buffer.clear();
                             buffer.put(token.getBytes());
                             buffer.flip();
                             socketChannel.write(buffer);
+                            buffer.clear();
 
                         } else if (message.startsWith("logout")) {
                             String[] parts = message.split(" ");
                             String token = parts[1];
                             auth.invalidateToken(token);
                             clientTokens.remove(socketChannel);
-
-                            buffer.clear();
-                            buffer.put("Success!".getBytes());
+                            buffer.put(new byte[BUFFER_SIZE]);
+                            buffer.put(0, "Success!".getBytes());
                             buffer.flip();
                             socketChannel.write(buffer);
+                            buffer.clear();
                             key.cancel();
                             System.out.println("Client disconnected: " + socketChannel.getRemoteAddress());
                             socketChannel.close();
 
                         } else {
                             // Echo back the received message
-                            buffer.clear();
-                            buffer.put(message.getBytes());
+                            buffer.put((message).getBytes());
                             buffer.flip();
                             socketChannel.write(buffer);
+                            buffer.clear();
                         }
                     }
                 }

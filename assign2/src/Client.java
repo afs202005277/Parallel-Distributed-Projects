@@ -1,9 +1,7 @@
 import java.io.IOException;
-import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
-import java.util.Arrays;
 import java.util.Objects;
 import java.util.Scanner;
 
@@ -14,12 +12,11 @@ public class Client {
         Scanner scanner = new Scanner(System.in);
         ByteBuffer buffer = ByteBuffer.allocate(4096);
         String token = "";
-        do{
+        do {
             buffer.clear();
             System.out.print("Enter a message to send: ");
             String message = scanner.nextLine();
-            if (Objects.equals(message, "")){
-                System.out.println("empty");
+            if (Objects.equals(message, "")) {
                 break;
             }
             byte[] bytesToSend = message.getBytes();
@@ -28,7 +25,7 @@ public class Client {
             socketChannel.write(buffer);
             buffer.clear();
             socketChannel.read(buffer);
-            if (message.startsWith("login")){
+            if (message.startsWith("login")) {
                 token = new String(buffer.array()).trim();
                 System.out.println(token);
             }
