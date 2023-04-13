@@ -27,7 +27,7 @@ public class Client {
             socketChannel.read(buffer);
             if (message.startsWith("login") || message.startsWith("register")) {
                 String tmp = new String(buffer.array()).trim();
-                if (!tmp.startsWith("Error"))
+                if (!tmp.startsWith("Error") && !tmp.startsWith("Usage"))
                     token = tmp;
             }
             System.out.println("Message received: " + new String(buffer.array()).trim());

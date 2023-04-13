@@ -55,13 +55,18 @@ public class Server {
                         buffer.clear();
                         System.out.println("Message received from " + socketChannel.getRemoteAddress() + ": " + message);
 
-                        if (message.startsWith("register")){
+                        if (message.startsWith("register")) {
                             String[] parts = message.split(" ");
-                            String username = parts[1];
-                            String password = parts[2]; // to be done later
-                            String res = auth.registerUser(username, password);
-                            if (!res.contains("Error:"))
-                                clientTokens.put(socketChannel, res);
+                            String res;
+                            if (parts.length != 3)
+                                res = "Usage: register <username> <password>";
+                            else {
+                                String username = parts[1];
+                                String password = parts[2]; // to be done later
+                                res = auth.registerUser(username, password);
+                                if (!res.contains("Error:"))
+                                    clientTokens.put(socketChannel, res);
+                            }
                             buffer.put(res.getBytes());
                             buffer.flip();
                             socketChannel.write(buffer);
@@ -69,14 +74,18 @@ public class Server {
                         } else if (message.startsWith("login")) {
                             String res;
                             String[] parts = message.split(" ");
-                            String username = parts[1];
-                            String password = parts[2];
-                            if (!auth.isLoggedIn(username)){
-                                res = auth.login(username, password);
-                                if (!res.contains("Error:"))
-                                    clientTokens.put(socketChannel, res);
+                            if (parts.length != 3){
+                                res = "Usage: login <username> <password>";
                             } else{
-                                res = "Error: You are already logged in!";
+                                String username = parts[1];
+                                String password = parts[2];
+                                if (!auth.isLoggedIn(username)) {
+                                    res = auth.login(username, password);
+                                    if (!res.contains("Error:"))
+                                        clientTokens.put(socketChannel, res);
+                                } else {
+                                    res = "Error: You are already logged in!";
+                                }
                             }
                             buffer.put(res.getBytes());
                             buffer.flip();
@@ -84,19 +93,23 @@ public class Server {
                             buffer.clear();
 
                         } else if (message.startsWith("logout")) {
-                            String[] parts = message.split(" ");
-                            String token = parts[1];
                             String answer;
+                            String[] parts = message.split(" ");
                             boolean canceled = false;
-                            if (clientTokens.containsValue(token)){
-                                auth.invalidateToken(token);
-                                clientTokens.remove(socketChannel);
-                                answer = "Success!";
-                                key.cancel();
-                                canceled = true;
-                                System.out.println("Client disconnected: " + socketChannel.getRemoteAddress());
+                            if (parts.length != 2){
+                                answer = "Usage: logout <token>";
                             } else{
-                                answer = "Invalid token!";
+                                String token = parts[1];
+                                if (clientTokens.containsValue(token)) {
+                                    auth.invalidateToken(token);
+                                    clientTokens.remove(socketChannel);
+                                    answer = "Success!";
+                                    key.cancel();
+                                    canceled = true;
+                                    System.out.println("Client disconnected: " + socketChannel.getRemoteAddress());
+                                } else {
+                                    answer = "Invalid token!";
+                                }
                             }
                             buffer.put(new byte[BUFFER_SIZE]);
                             buffer.put(0, answer.getBytes());
