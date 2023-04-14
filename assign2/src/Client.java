@@ -12,25 +12,39 @@ public class Client {
         Scanner scanner = new Scanner(System.in);
         ByteBuffer buffer = ByteBuffer.allocate(4096);
         String token = "";
+        boolean canWrite = true;
         do {
             buffer.clear();
-            System.out.print("Enter a message to send: ");
-            String message = scanner.nextLine();
-            if (Objects.equals(message, "")) {
-                break;
+            String message = "";
+            if (canWrite) {
+                System.out.print("Enter a message to send: ");
+                message = scanner.nextLine();
+                if (Objects.equals(message, "")) {
+                    break;
+                }
+                byte[] bytesToSend = message.getBytes();
+                buffer.put(bytesToSend);
+                buffer.flip();
+                socketChannel.write(buffer);
+                buffer.clear();
             }
-            byte[] bytesToSend = message.getBytes();
-            buffer.put(bytesToSend);
-            buffer.flip();
-            socketChannel.write(buffer);
-            buffer.clear();
             socketChannel.read(buffer);
-            if (message.startsWith("login") || message.startsWith("register")) {
-                String tmp = new String(buffer.array()).trim();
-                if (!tmp.startsWith("Error") && !tmp.startsWith("Usage"))
-                    token = tmp;
+            String tmp = new String(buffer.array()).trim();
+            if (canWrite) {
+                if (message.startsWith("login") || message.startsWith("register")) {
+                    if (!tmp.startsWith("Error") && !tmp.startsWith("Usage")) {
+                        token = tmp.substring(tmp.indexOf(": ") + 2, tmp.indexOf("\n"));
+                        if (!tmp.contains("Game Starting!"))
+                            canWrite = false;
+                    }
+                }
             }
-            System.out.println("Message received: " + new String(buffer.array()).trim());
+            else {
+                if (tmp.contains("Game Starting!"))
+                    canWrite = true;
+            }
+
+            System.out.println(tmp);
         } while (true);
         buffer.clear();
         buffer.put(("logout " + token).getBytes());

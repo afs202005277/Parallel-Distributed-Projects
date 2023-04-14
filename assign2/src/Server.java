@@ -6,12 +6,23 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
+import java.util.*;
 
 public class Server {
     private static final int BUFFER_SIZE = 4096;
+
+    private static void sendMessageToPlayers(ByteBuffer buffer, HashMap<SocketChannel, String> clients, String message) throws IOException {
+        for (SocketChannel client : clients.keySet()) {
+            if (clients.get(client).equals("play")) {
+                System.out.println(client.getLocalAddress().toString());
+                buffer.put(new byte[BUFFER_SIZE]);
+                buffer.put(0, message.getBytes());
+                buffer.flip();
+                client.write(buffer);
+                buffer.clear();
+            }
+        }
+    }
 
     public static void main(String[] args) throws IOException {
         ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
@@ -23,6 +34,10 @@ public class Server {
 
         Authentication auth = new Authentication("src/tokens.txt", "src/users.txt");
         Map<SocketChannel, String> clientTokens = new HashMap<>();
+
+        final int PLAYERS = 4;
+        int currentPlayers = 0;
+        HashMap<SocketChannel, String> clients = new HashMap<>();
 
         while (true) {
             selector.select();
@@ -71,9 +86,29 @@ public class Server {
                             else {
                                 String username = parts[1];
                                 String password = parts[2]; // to be done later
-                                res = auth.registerUser(username, password);
+                                String tok = auth.registerUser(username, password);
+                                if (tok.contains("Error"))
+                                    res = tok;
+                                else {
+                                    res = "Login Token: " + tok + "\nWelcome " + username + "!\n";
+                                    if (currentPlayers < PLAYERS - 1) {
+                                        currentPlayers++;
+                                        String m = "Waiting for players [" + currentPlayers + " / " + PLAYERS + "]";
+                                        res += m;
+                                        sendMessageToPlayers(buffer, clients, m);
+                                        clients.put(socketChannel, "play");
+                                    } else if (currentPlayers < PLAYERS) {
+                                        currentPlayers++;
+                                        res += "Game Starting!";
+                                        sendMessageToPlayers(buffer, clients, "Game Starting!");
+                                        clients.put(socketChannel, "play");
+                                    } else {
+                                        res += "You are in the Queue!";
+                                        clients.put(socketChannel, "queue");
+                                    }
+                                }
                                 if (!res.contains("Error:"))
-                                    clientTokens.put(socketChannel, res);
+                                    clientTokens.put(socketChannel, tok);
                             }
                             buffer.put(res.getBytes());
                             buffer.flip();
@@ -84,18 +119,39 @@ public class Server {
                             String[] parts = message.split(" ");
                             if (parts.length != 3){
                                 res = "Usage: login <username> <password>";
-                            } else{
+                            } else {
                                 String username = parts[1];
                                 String password = parts[2];
                                 if (!auth.isLoggedIn(username)) {
-                                    res = auth.login(username, password);
+                                    String tok = auth.login(username, password);
+                                    if (tok.contains("Error"))
+                                        res = tok;
+                                    else {
+                                        res = "Login Token: " + tok + "\nWelcome " + username + "!\n";
+                                        if (currentPlayers < PLAYERS - 1) {
+                                            currentPlayers++;
+                                            String m = "Waiting for players [" + currentPlayers + " / " + PLAYERS + "]";
+                                            res += m;
+                                            sendMessageToPlayers(buffer, clients, m);
+                                            clients.put(socketChannel, "play");
+                                        } else if (currentPlayers < PLAYERS) {
+                                            currentPlayers++;
+                                            res += "Game Starting!";
+                                            sendMessageToPlayers(buffer, clients, "Game Starting!");
+                                            clients.put(socketChannel, "play");
+                                        } else {
+                                            res += "You are in the Queue!";
+                                            clients.put(socketChannel, "queue");
+                                        }
+                                    }
                                     if (!res.contains("Error:"))
-                                        clientTokens.put(socketChannel, res);
+                                        clientTokens.put(socketChannel, tok);
                                 } else {
                                     res = "Error: You are already logged in!";
                                 }
                             }
-                            buffer.put(res.getBytes());
+                            buffer.put(new byte[BUFFER_SIZE]);
+                            buffer.put(0, res.getBytes());
                             buffer.flip();
                             socketChannel.write(buffer);
                             buffer.clear();
@@ -103,6 +159,9 @@ public class Server {
                         } else if (message.startsWith("logout")) {
                             String answer;
                             String[] parts = message.split(" ");
+                            for (String part : parts) {
+                                System.out.println(part);
+                            }
                             boolean canceled = false;
                             if (parts.length != 2){
                                 answer = "Usage: logout <token>";
@@ -112,6 +171,7 @@ public class Server {
                                     auth.invalidateToken(token);
                                     clientTokens.remove(socketChannel);
                                     answer = "Success!";
+                                    currentPlayers--;
                                     key.cancel();
                                     canceled = true;
                                     System.out.println("Client disconnected: " + socketChannel.getRemoteAddress());
@@ -129,7 +189,8 @@ public class Server {
 
                         } else {
                             // Echo back the received message
-                            buffer.put((message).getBytes());
+                            buffer.put(new byte[BUFFER_SIZE]);
+                            buffer.put(0, (message).getBytes());
                             buffer.flip();
                             socketChannel.write(buffer);
                             buffer.clear();
