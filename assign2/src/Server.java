@@ -170,8 +170,11 @@ public class Server {
                                 if (clientTokens.containsValue(token)) {
                                     auth.invalidateToken(token);
                                     clientTokens.remove(socketChannel);
+                                    clients.remove(socketChannel);
                                     answer = "Success!";
                                     currentPlayers--;
+                                    String m = "Waiting for players [" + currentPlayers + " / " + PLAYERS + "]";
+                                    sendMessageToPlayers(buffer, clients, m);
                                     key.cancel();
                                     canceled = true;
                                     System.out.println("Client disconnected: " + socketChannel.getRemoteAddress());

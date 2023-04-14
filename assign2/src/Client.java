@@ -7,6 +7,7 @@ import java.util.Scanner;
 
 public class Client {
     public static void main(String[] args) throws IOException {
+
         SocketChannel socketChannel = SocketChannel.open();
         socketChannel.connect(new InetSocketAddress("localhost", 8080));
         Scanner scanner = new Scanner(System.in);
@@ -34,6 +35,21 @@ public class Client {
                 if (message.startsWith("login") || message.startsWith("register")) {
                     if (!tmp.startsWith("Error") && !tmp.startsWith("Usage")) {
                         token = tmp.substring(tmp.indexOf(": ") + 2, tmp.indexOf("\n"));
+                        final String tok = token;
+                        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                                try {
+                                    buffer.clear();
+                                    buffer.put(new byte[4096]);
+                                    buffer.put(0, ("logout " + tok).getBytes());
+                                    buffer.flip();
+                                    socketChannel.write(buffer);
+                                    buffer.clear();
+                                    socketChannel.read(buffer);
+                                    socketChannel.close();
+                                } catch (IOException e) {
+                                    System.out.println("ERROR");
+                                }
+                        }));
                         if (!tmp.contains("Game Starting!"))
                             canWrite = false;
                     }
