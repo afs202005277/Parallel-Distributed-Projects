@@ -50,14 +50,13 @@ public class Client {
                                     System.out.println("ERROR");
                                 }
                         }));
-                        if (!tmp.contains("Game Starting!"))
-                            canWrite = false;
+                        canWrite = false;
                     }
                 }
             }
             else {
                 if (tmp.contains("Game Starting!"))
-                    canWrite = true;
+                    canWrite = false;
             }
 
             System.out.println(tmp);

@@ -35,9 +35,18 @@ public class Server {
         Authentication auth = new Authentication("src/tokens.txt", "src/users.txt");
         Map<SocketChannel, String> clientTokens = new HashMap<>();
 
-        final int PLAYERS = 4;
+        final int PLAYERS = 2;
         int currentPlayers = 0;
         HashMap<SocketChannel, String> clients = new HashMap<>();
+        List<String> leftInGame = new ArrayList<>();
+
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            try {
+                auth.clearTokens();
+            } catch (IOException e) {
+                System.out.println("ERROR");
+            }
+        }));
 
         while (true) {
             selector.select();
@@ -128,21 +137,29 @@ public class Server {
                                         res = tok;
                                     else {
                                         res = "Login Token: " + tok + "\nWelcome " + username + "!\n";
-                                        if (currentPlayers < PLAYERS - 1) {
-                                            currentPlayers++;
-                                            String m = "Waiting for players [" + currentPlayers + " / " + PLAYERS + "]";
-                                            res += m;
-                                            sendMessageToPlayers(buffer, clients, m);
+                                        if (leftInGame.contains(username)) {
+                                            sendMessageToPlayers(buffer, clients, username + " has reconnected!");
+                                            res += username + " has reconnected!";
                                             clients.put(socketChannel, "play");
-                                        } else if (currentPlayers < PLAYERS) {
-                                            currentPlayers++;
-                                            res += "Game Starting!";
-                                            sendMessageToPlayers(buffer, clients, "Game Starting!");
-                                            clients.put(socketChannel, "play");
-                                        } else {
-                                            res += "You are in the Queue!";
-                                            clients.put(socketChannel, "queue");
                                         }
+                                        else {
+                                            if (currentPlayers < PLAYERS - 1) {
+                                                currentPlayers++;
+                                                String m = "Waiting for players [" + currentPlayers + " / " + PLAYERS + "]";
+                                                res += m;
+                                                sendMessageToPlayers(buffer, clients, m);
+                                                clients.put(socketChannel, "play");
+                                            } else if (currentPlayers < PLAYERS) {
+                                                currentPlayers++;
+                                                res += "Game Starting!";
+                                                sendMessageToPlayers(buffer, clients, "Game Starting!");
+                                                clients.put(socketChannel, "play");
+                                            } else {
+                                                res += "You are in the Queue!";
+                                                clients.put(socketChannel, "queue");
+                                            }
+                                        }
+
                                     }
                                     if (!res.contains("Error:"))
                                         clientTokens.put(socketChannel, tok);
@@ -159,22 +176,27 @@ public class Server {
                         } else if (message.startsWith("logout")) {
                             String answer;
                             String[] parts = message.split(" ");
-                            for (String part : parts) {
-                                System.out.println(part);
-                            }
                             boolean canceled = false;
                             if (parts.length != 2){
                                 answer = "Usage: logout <token>";
                             } else{
                                 String token = parts[1];
                                 if (clientTokens.containsValue(token)) {
+                                    answer = "Success!";
+                                    if (currentPlayers < PLAYERS) {
+                                        currentPlayers--;
+                                        String m = "Waiting for players [" + currentPlayers + " / " + PLAYERS + "]";
+                                        sendMessageToPlayers(buffer, clients, m);
+                                    } else {
+                                       if (clients.get(socketChannel).equals("play")) {
+                                           String username = auth.getUserName(token);
+                                           leftInGame.add(username);
+                                           sendMessageToPlayers(buffer, clients, username + " has disconected!");
+                                       }
+                                    }
+                                    clients.remove(socketChannel);
                                     auth.invalidateToken(token);
                                     clientTokens.remove(socketChannel);
-                                    clients.remove(socketChannel);
-                                    answer = "Success!";
-                                    currentPlayers--;
-                                    String m = "Waiting for players [" + currentPlayers + " / " + PLAYERS + "]";
-                                    sendMessageToPlayers(buffer, clients, m);
                                     key.cancel();
                                     canceled = true;
                                     System.out.println("Client disconnected: " + socketChannel.getRemoteAddress());

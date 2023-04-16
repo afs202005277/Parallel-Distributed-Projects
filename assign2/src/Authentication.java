@@ -54,6 +54,20 @@ public class Authentication {
         return token;
     }
 
+    public synchronized String getUserName(String token) {
+        for (String key : tokens.keySet()) {
+            if (tokens.get(key).equals(token)) {
+                return key;
+            }
+        }
+        return null;
+    }
+
+    public synchronized void clearTokens() throws IOException{
+        tokens.clear();
+        saveTokensToFile();
+    }
+
     public synchronized void invalidateToken(String token) throws IOException {
         String username = null;
         for (String key : tokens.keySet()) {
