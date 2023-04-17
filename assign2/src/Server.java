@@ -168,7 +168,7 @@ public class Server {
                                                 playing.add(socketChannel);
                                             } else {
                                                 inQueue.put(socketChannel, inQueue.size() + 1);
-                                                res += "You are in the Queue!\n Position in Queue: " + inQueue.get(socketChannel);
+                                                res += "You are in the Queue!\nPosition in Queue: " + inQueue.get(socketChannel);
                                             }
                                         }
 
