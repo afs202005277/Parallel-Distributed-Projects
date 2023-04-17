@@ -11,16 +11,27 @@ import java.util.*;
 public class Server {
     private static final int BUFFER_SIZE = 4096;
 
-    private static void sendMessageToPlayers(ByteBuffer buffer, HashMap<SocketChannel, String> clients, String message) throws IOException {
+    private static void sendMessageToPlayers(ByteBuffer buffer, List<SocketChannel> clients, String message) throws IOException {
+        for (SocketChannel client : clients) {
+            buffer.put(new byte[BUFFER_SIZE]);
+            buffer.put(0, message.getBytes());
+            buffer.flip();
+            client.write(buffer);
+            buffer.clear();
+        }
+    }
+    
+    private static void updateQueue(ByteBuffer buffer, HashMap<SocketChannel, Integer> clients) throws IOException {
+        int i = 1;
         for (SocketChannel client : clients.keySet()) {
-            if (clients.get(client).equals("play")) {
-                System.out.println(client.getLocalAddress().toString());
-                buffer.put(new byte[BUFFER_SIZE]);
-                buffer.put(0, message.getBytes());
-                buffer.flip();
-                client.write(buffer);
-                buffer.clear();
-            }
+            buffer.put(new byte[BUFFER_SIZE]);
+            String m = "Position in Queue: " + i;
+            clients.replace(client, i);
+            buffer.put(0, m.getBytes());
+            buffer.flip();
+            client.write(buffer);
+            buffer.clear();
+            i++;
         }
     }
 
@@ -37,7 +48,8 @@ public class Server {
 
         final int PLAYERS = 2;
         int currentPlayers = 0;
-        HashMap<SocketChannel, String> clients = new HashMap<>();
+        List<SocketChannel> playing = new ArrayList<>();
+        HashMap<SocketChannel, Integer> inQueue = new HashMap<>();
         List<String> leftInGame = new ArrayList<>();
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
@@ -104,16 +116,16 @@ public class Server {
                                         currentPlayers++;
                                         String m = "Waiting for players [" + currentPlayers + " / " + PLAYERS + "]";
                                         res += m;
-                                        sendMessageToPlayers(buffer, clients, m);
-                                        clients.put(socketChannel, "play");
+                                        sendMessageToPlayers(buffer, playing, m);
+                                        playing.add(socketChannel);
                                     } else if (currentPlayers < PLAYERS) {
                                         currentPlayers++;
                                         res += "Game Starting!";
-                                        sendMessageToPlayers(buffer, clients, "Game Starting!");
-                                        clients.put(socketChannel, "play");
+                                        sendMessageToPlayers(buffer, playing, "Game Starting!");
+                                        playing.add(socketChannel);
                                     } else {
-                                        res += "You are in the Queue!";
-                                        clients.put(socketChannel, "queue");
+                                        inQueue.put(socketChannel, inQueue.size() + 1);
+                                        res += "You are in the Queue!\n Position in Queue: " + inQueue.get(socketChannel);
                                     }
                                 }
                                 if (!res.contains("Error:"))
@@ -138,25 +150,25 @@ public class Server {
                                     else {
                                         res = "Login Token: " + tok + "\nWelcome " + username + "!\n";
                                         if (leftInGame.contains(username)) {
-                                            sendMessageToPlayers(buffer, clients, username + " has reconnected!");
+                                            sendMessageToPlayers(buffer, playing, username + " has reconnected!");
                                             res += username + " has reconnected!";
-                                            clients.put(socketChannel, "play");
+                                            playing.add(socketChannel);
                                         }
                                         else {
                                             if (currentPlayers < PLAYERS - 1) {
                                                 currentPlayers++;
                                                 String m = "Waiting for players [" + currentPlayers + " / " + PLAYERS + "]";
                                                 res += m;
-                                                sendMessageToPlayers(buffer, clients, m);
-                                                clients.put(socketChannel, "play");
+                                                sendMessageToPlayers(buffer, playing, m);
+                                                playing.add(socketChannel);
                                             } else if (currentPlayers < PLAYERS) {
                                                 currentPlayers++;
                                                 res += "Game Starting!";
-                                                sendMessageToPlayers(buffer, clients, "Game Starting!");
-                                                clients.put(socketChannel, "play");
+                                                sendMessageToPlayers(buffer, playing, "Game Starting!");
+                                                playing.add(socketChannel);
                                             } else {
-                                                res += "You are in the Queue!";
-                                                clients.put(socketChannel, "queue");
+                                                inQueue.put(socketChannel, inQueue.size() + 1);
+                                                res += "You are in the Queue!\n Position in Queue: " + inQueue.get(socketChannel);
                                             }
                                         }
 
@@ -185,16 +197,22 @@ public class Server {
                                     answer = "Success!";
                                     if (currentPlayers < PLAYERS) {
                                         currentPlayers--;
+                                        playing.remove(socketChannel);
                                         String m = "Waiting for players [" + currentPlayers + " / " + PLAYERS + "]";
-                                        sendMessageToPlayers(buffer, clients, m);
+                                        sendMessageToPlayers(buffer, playing, m);
                                     } else {
-                                       if (clients.get(socketChannel).equals("play")) {
+                                       if (playing.contains(socketChannel)) {
                                            String username = auth.getUserName(token);
                                            leftInGame.add(username);
-                                           sendMessageToPlayers(buffer, clients, username + " has disconected!");
+                                           playing.remove(socketChannel);
+                                           sendMessageToPlayers(buffer, playing, username + " has disconected!");
                                        }
                                     }
-                                    clients.remove(socketChannel);
+                                    if (inQueue.keySet().contains(socketChannel)) {
+                                        inQueue.remove(socketChannel);
+                                        updateQueue(buffer, inQueue);
+                                    }
+                                        
                                     auth.invalidateToken(token);
                                     clientTokens.remove(socketChannel);
                                     key.cancel();
