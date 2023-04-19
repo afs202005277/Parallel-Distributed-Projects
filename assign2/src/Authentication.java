@@ -3,9 +3,14 @@ import java.util.Hashtable;
 import java.util.UUID;
 
 public class Authentication {
+    // username -> token
     private final Hashtable<String, String> tokens;
     private final String tokensFileName;
     private final String usersFileName;
+
+    public Hashtable<String, String> getTokens() {
+        return tokens;
+    }
 
     public Authentication(String filename, String usersFileName) throws IOException {
         this.tokensFileName = filename;
