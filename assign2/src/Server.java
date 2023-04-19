@@ -9,7 +9,7 @@ import java.nio.channels.SocketChannel;
 import java.util.*;
 
 public class Server {
-    private static final int BUFFER_SIZE = 4096;
+    public static final int BUFFER_SIZE = 4096;
 
     private static void sendMessageToPlayers(ByteBuffer buffer, List<SocketChannel> clients, String message) throws IOException {
         for (SocketChannel client : clients) {
