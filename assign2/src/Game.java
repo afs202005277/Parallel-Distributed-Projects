@@ -4,7 +4,7 @@ import java.util.Random;
 
 public class Game extends Thread implements Runnable {
 
-    private static final int numPlayers = 2;
+    private static final int numPlayers = 2; // must be even
     private static final int interactions_before_end_game = 20;
 
 
@@ -19,6 +19,12 @@ public class Game extends Thread implements Runnable {
     private ArrayList<String> username_message;
     private ArrayList<String> messages;
 
+    private boolean isReady;
+
+    public boolean isReady() {
+        return isReady;
+    }
+
     public void sendMessage(String username, String message) {
         username_message.add(username);
         messages.add(message);
@@ -32,8 +38,8 @@ public class Game extends Thread implements Runnable {
         this.messages = new ArrayList<>();
     }
 
-    public void povoate_users(ArrayList<String> usernames) {
-        this.usernames = usernames;
+    public void povoate_users(List<String> usernames) {
+        this.usernames = (ArrayList<String>) usernames;
         for (int i = 0; i < usernames.size(); i++)
             this.usernames_points.add(0);
     }
@@ -44,6 +50,7 @@ public class Game extends Thread implements Runnable {
 
     @Override
     public void run() {
+        isReady = false;
         int interactions = 0;
         do {
             if (messages.isEmpty()) {
@@ -76,6 +83,7 @@ public class Game extends Thread implements Runnable {
                 usernames_points.set(i, -usernames_points.get(i));
             }
         }
+        isReady = true;
     }
 
     public ArrayList<String> getUsernames() {

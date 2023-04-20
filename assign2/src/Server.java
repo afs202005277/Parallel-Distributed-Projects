@@ -50,6 +50,39 @@ public class Server {
         return -1;
     }
 
+    public static Map<String, SocketChannel> getUsernamesToSocketChannelsForGame(
+            Map<SocketChannel, String> clientTokens,
+            Map<SocketChannel, Integer> playing,
+            Map<String, String> tokensToUsername,
+            int gameIndex) {
+
+        Map<String, SocketChannel> usernamesToSocketChannels = new HashMap<>();
+
+        for (Map.Entry<SocketChannel, Integer> entry : playing.entrySet()) {
+            SocketChannel socketChannel = entry.getKey();
+            int index = entry.getValue();
+            String token = clientTokens.get(socketChannel);
+
+            if (index == gameIndex) {
+                String username = tokensToUsername.get(token);
+                usernamesToSocketChannels.put(username, socketChannel);
+            }
+        }
+
+        return usernamesToSocketChannels;
+    }
+
+    private static void sendGameMessages(HashMap<String, SocketChannel> receivers, List<String> usernames, List<String> messages) throws IOException {
+        // hashmap: username -> socketchannel
+        ByteBuffer byteBuffer = ByteBuffer.allocate(BUFFER_SIZE);
+        for (int i = 0; i<usernames.size();i++){
+            SocketChannel socketChannel = receivers.get(usernames.get(i));
+            byteBuffer.put(messages.get(i).getBytes());
+            byteBuffer.flip();
+            socketChannel.write(byteBuffer);
+        }
+    }
+
     public static void main(String[] args) throws IOException {
         ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
         serverSocketChannel.socket().bind(new InetSocketAddress(8080));
@@ -83,6 +116,12 @@ public class Server {
         }));
 
         while (true) {
+            for (int i=0;i<games.size();i++){
+                ArrayList<String> answers = games.get(i).getMessageForServer();
+                ArrayList<String> usernames = games.get(i).getUsernameFromMessageForServer();
+                HashMap<String, SocketChannel> usernameToSocket = (HashMap<String, SocketChannel>) getUsernamesToSocketChannelsForGame(clientTokens, playing, auth.getTokens(), i);
+                sendGameMessages(usernameToSocket, usernames, answers);
+            }
             selector.select();
             Iterator<SelectionKey> iterator = selector.selectedKeys().iterator();
             while (iterator.hasNext()) {
@@ -109,7 +148,6 @@ public class Server {
                             disconected = true;
                         }
                     }
-
                     if (numRead == -1 || disconected) {
                         auth.invalidateToken(clientTokens.get(socketChannel));
                         System.out.println("Client disconnected: " + socketChannel.getRemoteAddress());
@@ -121,6 +159,11 @@ public class Server {
                         String message = new String(buffer.array(), 0, buffer.limit()).trim();
                         buffer.clear();
                         System.out.println("Message received from " + socketChannel.getRemoteAddress() + ": " + message);
+
+                        if (playing.get(socketChannel) != null){
+                            int index = playing.get(socketChannel);
+                            games.get(index).sendMessage(auth.getTokens().get(clientTokens.get(socketChannel)), message);
+                        }
 
                         if (message.startsWith("register")) {
                             String[] parts = message.split(" ");

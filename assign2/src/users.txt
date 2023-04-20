@@ -1,8 +1,0 @@
-gpe1:password
-gpe2:password
-gpe3:password
-gpe4:password
-gpe5:password
-gpe6:password
-pedro:123456
-andre:654321
