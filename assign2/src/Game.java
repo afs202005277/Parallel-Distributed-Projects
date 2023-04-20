@@ -19,7 +19,7 @@ public class Game extends Thread implements Runnable {
     private ArrayList<String> username_message;
     private ArrayList<String> messages;
 
-    private boolean isReady;
+    private boolean isReady = true;
 
     public boolean isReady() {
         return isReady;
