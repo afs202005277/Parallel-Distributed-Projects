@@ -2,7 +2,7 @@ import java.nio.channels.SocketChannel;
 import java.util.*;
 import java.util.Random;
 
-public class Game extends Thread implements Runnable {
+public class Game {
 
     private static final int numPlayers = 2; // must be even
     private static final int interactions_before_end_game = 20;
@@ -19,18 +19,21 @@ public class Game extends Thread implements Runnable {
     private ArrayList<String> username_message;
     private ArrayList<String> messages;
 
-    private boolean isReady = true;
+    private int iterations;
 
-    public boolean isReady() {
-        return isReady;
+    public boolean isEnded(){
+        return iterations < Game.interactions_before_end_game;
     }
 
     public void sendMessage(String username, String message) {
         username_message.add(username);
         messages.add(message);
+        System.out.println(messages);
+        System.out.println("INSIDE GAME:" + message);
     }
 
     public Game() {
+        iterations = 0;
         message_for_server = new ArrayList<>();
         username_message_for_server = new ArrayList<>();
         usernames_points = new ArrayList<>();
@@ -48,28 +51,24 @@ public class Game extends Thread implements Runnable {
         return numPlayers;
     }
 
-    @Override
-    public void run() {
-        isReady = false;
-        int interactions = 0;
-        do {
-            if (messages.isEmpty()) {
-                try {
-                    wait();
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                }
-            }
+    public void nextIteration() {
 
-            while (!this.messages.isEmpty()) {
-                interactions++;
-                game_logic(this.username_message.get(0));
-                messages.remove(0);
-                this.username_message.remove(0);
-                interactions++;
-            }
+        System.out.println("hello?");
+        while(messages.isEmpty()){
+            System.out.println(messages);
+            continue;
+        }
+        System.out.println("outside is empty");
 
-        } while (interactions < interactions_before_end_game);
+        while (!this.messages.isEmpty()) {
+            iterations++;
+            game_logic(this.username_message.get(0));
+            messages.remove(0);
+            this.username_message.remove(0);
+        }
+    }
+
+    public void processEndGame(){
         for (String user : this.usernames) {
             this.message_for_server.add("GAME_OVER");
             this.username_message_for_server.add(user);
@@ -83,7 +82,6 @@ public class Game extends Thread implements Runnable {
                 usernames_points.set(i, -usernames_points.get(i));
             }
         }
-        isReady = true;
     }
 
     public ArrayList<String> getUsernames() {
@@ -113,21 +111,21 @@ public class Game extends Thread implements Runnable {
         if (rand.nextFloat() < 0.01) {
             message_action = "Planted the bomb";
             this.add_score(username, 3);
-            if (usernames.indexOf(username) < numPlayers/2)
+            if (usernames.indexOf(username) < numPlayers / 2)
                 game_score += 3;
             else
                 game_score -= 3;
         } else if (rand.nextFloat() < 0.05) {
             message_action = "Killed a player";
             this.add_score(username, 2);
-            if (usernames.indexOf(username) < numPlayers/2)
+            if (usernames.indexOf(username) < numPlayers / 2)
                 game_score += 2;
             else
                 game_score -= 2;
         } else if (rand.nextFloat() < 0.15) {
             message_action = "Assisted on a kill";
             this.add_score(username, 1);
-            if (usernames.indexOf(username) < numPlayers/2)
+            if (usernames.indexOf(username) < numPlayers / 2)
                 game_score += 1;
             else
                 game_score -= 1;
@@ -136,5 +134,6 @@ public class Game extends Thread implements Runnable {
         }
         this.message_for_server.add(message_action);
         this.message_for_server.add(username);
+        System.out.println(message_action);
     }
 }

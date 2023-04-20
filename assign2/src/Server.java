@@ -10,102 +10,50 @@ import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public class Server {
+public class Server implements GameCallback{
     public static final int BUFFER_SIZE = 4096;
+    private final ServerSocketChannel serverSocketChannel;
+    private final Selector selector;
+    private final ExecutorService threadPool;
+    private final ArrayList<GameRunner> games;
+    private final int playersPerGame;
+    private final Authentication auth;
+    // channel -> tokens
+    private final HashMap<SocketChannel, String> clientTokens;
 
-    private static List<SocketChannel> sendMessageToPlayers(ByteBuffer buffer, Map<SocketChannel, Integer> clients, String message, Integer index) throws IOException {
-        List<SocketChannel> sockets = new ArrayList<>();
-        for (SocketChannel client : clients.keySet()) {
-            if (clients.get(client).equals(index)) {
-                buffer.put(new byte[BUFFER_SIZE]);
-                buffer.put(0, message.getBytes());
-                buffer.flip();
-                client.write(buffer);
-                buffer.clear();
-                sockets.add(client);
-            }
-        }
-        return sockets;
-    }
+    // channel -> index of the game where player is playing
+    private final HashMap<SocketChannel, Integer> playing;
 
-    private static void updateQueue(ByteBuffer buffer, Map<SocketChannel, Integer> clients) throws IOException {
-        int i = 1;
-        for (SocketChannel client : clients.keySet()) {
-            buffer.put(new byte[BUFFER_SIZE]);
-            String m = "Position in Queue: " + i;
-            clients.replace(client, i);
-            buffer.put(0, m.getBytes());
-            buffer.flip();
-            client.write(buffer);
-            buffer.clear();
-            i++;
-        }
-    }
+    // channel -> index of the game where player is waiting
+    private final HashMap<SocketChannel, Integer> inQueue;
 
-    private static int getNextReady(List<Game> games){
-        for (int i=0;i<games.size();i++){
-            if (games.get(i).isReady())
-                return i;
-        }
-        return -1;
-    }
+    // username -> index of the game where player was playing but crashed
+    private final HashMap<String, Integer> leftInGame;
+    
+    private int currentPlayers;
 
-    public static Map<String, SocketChannel> getUsernamesToSocketChannelsForGame(
-            Map<SocketChannel, String> clientTokens,
-            Map<SocketChannel, Integer> playing,
-            Map<String, String> tokensToUsername,
-            int gameIndex) {
-
-        Map<String, SocketChannel> usernamesToSocketChannels = new HashMap<>();
-
-        for (Map.Entry<SocketChannel, Integer> entry : playing.entrySet()) {
-            SocketChannel socketChannel = entry.getKey();
-            int index = entry.getValue();
-            String token = clientTokens.get(socketChannel);
-
-            if (index == gameIndex) {
-                String username = tokensToUsername.get(token);
-                usernamesToSocketChannels.put(username, socketChannel);
-            }
-        }
-
-        return usernamesToSocketChannels;
-    }
-
-    private static void sendGameMessages(HashMap<String, SocketChannel> receivers, List<String> usernames, List<String> messages) throws IOException {
-        // hashmap: username -> socketchannel
-        ByteBuffer byteBuffer = ByteBuffer.allocate(BUFFER_SIZE);
-        for (int i = 0; i<usernames.size();i++){
-            SocketChannel socketChannel = receivers.get(usernames.get(i));
-            byteBuffer.put(messages.get(i).getBytes());
-            byteBuffer.flip();
-            socketChannel.write(byteBuffer);
-        }
-    }
-
-    public static void main(String[] args) throws IOException {
-        ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
+    public Server(int maxGames) throws IOException {
+        serverSocketChannel = ServerSocketChannel.open();
         serverSocketChannel.socket().bind(new InetSocketAddress(8080));
         serverSocketChannel.configureBlocking(false);
 
-        int numThreads = 10;
-        ExecutorService threadPool = Executors.newFixedThreadPool(numThreads);
-        List<Game> games = new ArrayList<>();
-        for (int i = 0; i < numThreads; i++) {
-            games.add(new Game());
+        threadPool = Executors.newFixedThreadPool(maxGames);
+        games = new ArrayList<>();
+        for (int i = 0; i < maxGames; i++) {
+            games.add(new GameRunner(new Game(), this, i));
         }
 
-        Selector selector = Selector.open();
+        selector = Selector.open();
         serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT);
 
-        Authentication auth = new Authentication("src/tokens.txt", "src/users.txt");
-        Map<SocketChannel, String> clientTokens = new HashMap<>();
+        auth = new Authentication("src/tokens.txt", "src/users.txt");
+        clientTokens = new HashMap<>();
 
-        final int PLAYERS = Game.getNumPlayers();
-        int currentPlayers = 0;
-        Map<SocketChannel, Integer> playing = new HashMap<>();
-        Map<SocketChannel, Integer> inQueue = new HashMap<>();
-        Map<String, Integer> leftInGame = new HashMap<>();
+        playersPerGame = Game.getNumPlayers();
+        currentPlayers = 0;
+        playing = new HashMap<>();
+        inQueue = new HashMap<>();
+        leftInGame = new HashMap<>();
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             try {
@@ -114,14 +62,10 @@ public class Server {
                 System.out.println("ERROR");
             }
         }));
-
+    }
+    
+    public void runServer() throws IOException {
         while (true) {
-            for (int i=0;i<games.size();i++){
-                ArrayList<String> answers = games.get(i).getMessageForServer();
-                ArrayList<String> usernames = games.get(i).getUsernameFromMessageForServer();
-                HashMap<String, SocketChannel> usernameToSocket = (HashMap<String, SocketChannel>) getUsernamesToSocketChannelsForGame(clientTokens, playing, auth.getTokens(), i);
-                sendGameMessages(usernameToSocket, usernames, answers);
-            }
             selector.select();
             Iterator<SelectionKey> iterator = selector.selectedKeys().iterator();
             while (iterator.hasNext()) {
@@ -161,11 +105,10 @@ public class Server {
                         System.out.println("Message received from " + socketChannel.getRemoteAddress() + ": " + message);
 
                         if (playing.get(socketChannel) != null){
+
                             int index = playing.get(socketChannel);
                             games.get(index).sendMessage(auth.getTokens().get(clientTokens.get(socketChannel)), message);
-                        }
-
-                        if (message.startsWith("register")) {
+                        } else if (message.startsWith("register")) {
                             String[] parts = message.split(" ");
                             String res;
                             if (parts.length != 3)
@@ -178,16 +121,16 @@ public class Server {
                                     res = tok;
                                 else {
                                     res = "Login Token: " + tok + "\nWelcome " + username + "!\n";
-                                    if (currentPlayers < PLAYERS - 1) {
+                                    if (currentPlayers < playersPerGame - 1) {
                                         currentPlayers++;
-                                        String m = "Waiting for players [" + currentPlayers + " / " + PLAYERS + "]";
+                                        String m = "Waiting for players [" + currentPlayers + " / " + playersPerGame + "]";
                                         res += m;
-                                        sendMessageToPlayers(buffer, playing, m, nextReady);
+                                        sendMessageToPlayers(playing, m, nextReady);
                                         playing.put(socketChannel, nextReady);
-                                    } else if (currentPlayers < PLAYERS) {
+                                    } else if (currentPlayers < playersPerGame) {
                                         currentPlayers++;
                                         res += "Game Starting!";
-                                        sendMessageToPlayers(buffer, playing, "Game Starting!", nextReady);
+                                        sendMessageToPlayers(playing, "Game Starting!", nextReady);
                                         playing.put(socketChannel, nextReady);
                                     } else {
                                         inQueue.put(socketChannel, inQueue.size() + 1);
@@ -216,21 +159,21 @@ public class Server {
                                     else {
                                         res = "Login Token: " + tok + "\nWelcome " + username + "!\n";
                                         if (leftInGame.containsKey(username)) {
-                                            sendMessageToPlayers(buffer, playing, username + " has reconnected!", leftInGame.get(username));
+                                            sendMessageToPlayers(playing, username + " has reconnected!", leftInGame.get(username));
                                             res += username + " has reconnected!";
                                             playing.put(socketChannel, leftInGame.get(username));
                                         } else {
-                                            if (currentPlayers < PLAYERS - 1) {
+                                            if (currentPlayers < playersPerGame - 1) {
                                                 currentPlayers++;
-                                                String m = "Waiting for players [" + currentPlayers + " / " + PLAYERS + "]";
+                                                String m = "Waiting for players [" + currentPlayers + " / " + playersPerGame + "]";
                                                 res += m;
-                                                sendMessageToPlayers(buffer, playing, m, nextReady);
+                                                sendMessageToPlayers(playing, m, nextReady);
                                                 playing.put(socketChannel, nextReady);
-                                            } else if (currentPlayers < PLAYERS) {
+                                            } else if (currentPlayers < playersPerGame) {
                                                 currentPlayers++;
                                                 res += "Game Starting!";
                                                 playing.put(socketChannel, nextReady);
-                                                List<SocketChannel> sockets = sendMessageToPlayers(buffer, playing, "Game Starting!", nextReady);
+                                                List<SocketChannel> sockets = sendMessageToPlayers(playing, "Game Starting!", nextReady);
                                                 List<String> usernames = new ArrayList<>();
                                                 for (SocketChannel socket: sockets){
                                                     usernames.add(auth.getTokens().get(clientTokens.get(socket)));
@@ -242,7 +185,6 @@ public class Server {
                                                 res += "You are in the Queue!\nPosition in Queue: " + inQueue.get(socketChannel);
                                             }
                                         }
-
                                     }
                                     if (!res.contains("Error:"))
                                         clientTokens.put(socketChannel, tok);
@@ -266,23 +208,23 @@ public class Server {
                                 String token = parts[1];
                                 if (clientTokens.containsValue(token)) {
                                     answer = "Success!";
-                                    if (currentPlayers < PLAYERS) {
+                                    if (currentPlayers < playersPerGame) {
                                         currentPlayers--;
                                         playing.remove(socketChannel);
-                                        String m = "Waiting for players [" + currentPlayers + " / " + PLAYERS + "]";
-                                        sendMessageToPlayers(buffer, playing, m, nextReady);
+                                        String m = "Waiting for players [" + currentPlayers + " / " + playersPerGame + "]";
+                                        sendMessageToPlayers(playing, m, nextReady);
                                     } else {
                                         if (playing.containsKey(socketChannel)) {
                                             String username = auth.getUserName(token);
                                             int idx = playing.get(socketChannel);
                                             leftInGame.put(username, idx);
                                             playing.remove(socketChannel);
-                                            sendMessageToPlayers(buffer, playing, username + " has disconected!", idx);
+                                            sendMessageToPlayers(playing, username + " has disconected!", idx);
                                         }
                                     }
                                     if (inQueue.containsKey(socketChannel)) {
                                         inQueue.remove(socketChannel);
-                                        updateQueue(buffer, inQueue);
+                                        updateQueue(inQueue);
                                     }
 
                                     auth.invalidateToken(token);
@@ -313,6 +255,92 @@ public class Server {
                     }
                 }
             }
+        }
+    }
+
+    public static void main(String[] args) throws IOException {
+        Server server = new Server(10);
+        server.runServer();
+    }
+
+    private static List<SocketChannel> sendMessageToPlayers(Map<SocketChannel, Integer> clients, String message, Integer index) throws IOException {
+        ByteBuffer buffer = ByteBuffer.allocate(BUFFER_SIZE);
+        List<SocketChannel> sockets = new ArrayList<>();
+        for (SocketChannel client : clients.keySet()) {
+            if (clients.get(client).equals(index)) {
+                buffer.put(new byte[BUFFER_SIZE]);
+                buffer.put(0, message.getBytes());
+                buffer.flip();
+                client.write(buffer);
+                buffer.clear();
+                sockets.add(client);
+            }
+        }
+        return sockets;
+    }
+
+    private static void updateQueue(Map<SocketChannel, Integer> clients) throws IOException {
+        ByteBuffer buffer = ByteBuffer.allocate(BUFFER_SIZE);
+        int i = 1;
+        for (SocketChannel client : clients.keySet()) {
+            buffer.put(new byte[BUFFER_SIZE]);
+            String m = "Position in Queue: " + i;
+            clients.replace(client, i);
+            buffer.put(0, m.getBytes());
+            buffer.flip();
+            client.write(buffer);
+            buffer.clear();
+            i++;
+        }
+    }
+
+    private static int getNextReady(List<GameRunner> games){
+        for (int i=0;i<games.size();i++){
+            if (!games.get(i).isAlive())
+                return i;
+        }
+        return -1;
+    }
+
+    public static Map<String, SocketChannel> getUsernamesToSocketChannelsForGame(Map<SocketChannel, String> clientTokens, Map<SocketChannel, Integer> playing, Map<String, String> tokensToUsername, int gameIndex) {
+
+        Map<String, SocketChannel> usernamesToSocketChannels = new HashMap<>();
+
+        for (Map.Entry<SocketChannel, Integer> entry : playing.entrySet()) {
+            SocketChannel socketChannel = entry.getKey();
+            int index = entry.getValue();
+            String token = clientTokens.get(socketChannel);
+
+            if (index == gameIndex) {
+                String username = tokensToUsername.get(token);
+                usernamesToSocketChannels.put(username, socketChannel);
+            }
+        }
+
+        return usernamesToSocketChannels;
+    }
+
+    private static void sendGameMessages(HashMap<String, SocketChannel> receivers, List<String> usernames, List<String> messages) throws IOException {
+        // hashmap: username -> socketchannel
+        ByteBuffer byteBuffer = ByteBuffer.allocate(BUFFER_SIZE);
+        for (int i = 0; i<usernames.size();i++){
+            SocketChannel socketChannel = receivers.get(usernames.get(i));
+            byteBuffer.put(messages.get(i).getBytes());
+            byteBuffer.flip();
+            socketChannel.write(byteBuffer);
+        }
+    }
+
+    @Override
+    public void onUpdate(Game game, int index) {
+        ArrayList<String> answers = game.getMessageForServer();
+        ArrayList<String> usernames = game.getUsernameFromMessageForServer();
+        HashMap<String, SocketChannel> usernameToSocket = (HashMap<String, SocketChannel>) getUsernamesToSocketChannelsForGame(clientTokens, playing, auth.getTokens(), index);
+        try {
+            sendGameMessages(usernameToSocket, usernames, answers);
+            System.out.println("Game " + index + "finished!");
+        } catch (IOException e) {
+            System.out.println("Unable to send game messages!");
         }
     }
 }
