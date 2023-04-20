@@ -10,13 +10,14 @@ import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public class Server implements GameCallback{
+public class Server implements GameCallback {
     public static final int BUFFER_SIZE = 4096;
     private final ServerSocketChannel serverSocketChannel;
     private final Selector selector;
     private final ExecutorService threadPool;
     private final ArrayList<GameRunner> games;
     private final int playersPerGame;
+    private boolean startGame = false;
     private final Authentication auth;
     // channel -> tokens
     private final HashMap<SocketChannel, String> clientTokens;
@@ -29,7 +30,7 @@ public class Server implements GameCallback{
 
     // username -> index of the game where player was playing but crashed
     private final HashMap<String, Integer> leftInGame;
-    
+
     private int currentPlayers;
 
     public Server(int maxGames) throws IOException {
@@ -63,7 +64,7 @@ public class Server implements GameCallback{
             }
         }));
     }
-    
+
     public void runServer() throws IOException {
         while (true) {
             selector.select();
@@ -104,8 +105,7 @@ public class Server implements GameCallback{
                         buffer.clear();
                         System.out.println("Message received from " + socketChannel.getRemoteAddress() + ": " + message);
 
-                        if (playing.get(socketChannel) != null){
-
+                        if (playing.get(socketChannel) != null) {
                             int index = playing.get(socketChannel);
                             games.get(index).sendMessage(auth.getTokens().get(clientTokens.get(socketChannel)), message);
                         } else if (message.startsWith("register")) {
@@ -115,27 +115,12 @@ public class Server implements GameCallback{
                                 res = "Usage: register <username> <password>";
                             else {
                                 String username = parts[1];
-                                String password = parts[2]; // to be done later
+                                String password = parts[2];
                                 String tok = auth.registerUser(username, password);
                                 if (tok.contains("Error"))
                                     res = tok;
                                 else {
-                                    res = "Login Token: " + tok + "\nWelcome " + username + "!\n";
-                                    if (currentPlayers < playersPerGame - 1) {
-                                        currentPlayers++;
-                                        String m = "Waiting for players [" + currentPlayers + " / " + playersPerGame + "]";
-                                        res += m;
-                                        sendMessageToPlayers(playing, m, nextReady);
-                                        playing.put(socketChannel, nextReady);
-                                    } else if (currentPlayers < playersPerGame) {
-                                        currentPlayers++;
-                                        res += "Game Starting!";
-                                        sendMessageToPlayers(playing, "Game Starting!", nextReady);
-                                        playing.put(socketChannel, nextReady);
-                                    } else {
-                                        inQueue.put(socketChannel, inQueue.size() + 1);
-                                        res += "You are in the Queue!\n Position in Queue: " + inQueue.get(socketChannel);
-                                    }
+                                    res = gameHandling(socketChannel, nextReady, username, tok);
                                 }
                                 if (!res.contains("Error:"))
                                     clientTokens.put(socketChannel, tok);
@@ -144,6 +129,11 @@ public class Server implements GameCallback{
                             buffer.flip();
                             socketChannel.write(buffer);
                             buffer.clear();
+                            if (startGame){
+                                startGame(nextReady);
+                                startGame = false;
+                            }
+
                         } else if (message.startsWith("login")) {
                             String res;
                             String[] parts = message.split(" ");
@@ -157,34 +147,7 @@ public class Server implements GameCallback{
                                     if (tok.contains("Error"))
                                         res = tok;
                                     else {
-                                        res = "Login Token: " + tok + "\nWelcome " + username + "!\n";
-                                        if (leftInGame.containsKey(username)) {
-                                            sendMessageToPlayers(playing, username + " has reconnected!", leftInGame.get(username));
-                                            res += username + " has reconnected!";
-                                            playing.put(socketChannel, leftInGame.get(username));
-                                        } else {
-                                            if (currentPlayers < playersPerGame - 1) {
-                                                currentPlayers++;
-                                                String m = "Waiting for players [" + currentPlayers + " / " + playersPerGame + "]";
-                                                res += m;
-                                                sendMessageToPlayers(playing, m, nextReady);
-                                                playing.put(socketChannel, nextReady);
-                                            } else if (currentPlayers < playersPerGame) {
-                                                currentPlayers++;
-                                                res += "Game Starting!";
-                                                playing.put(socketChannel, nextReady);
-                                                List<SocketChannel> sockets = sendMessageToPlayers(playing, "Game Starting!", nextReady);
-                                                List<String> usernames = new ArrayList<>();
-                                                for (SocketChannel socket: sockets){
-                                                    usernames.add(auth.getTokens().get(clientTokens.get(socket)));
-                                                }
-                                                games.get(nextReady).povoate_users(usernames);
-                                                threadPool.submit(games.get(nextReady));
-                                            } else {
-                                                inQueue.put(socketChannel, inQueue.size() + 1);
-                                                res += "You are in the Queue!\nPosition in Queue: " + inQueue.get(socketChannel);
-                                            }
-                                        }
+                                        res = gameHandling(socketChannel, nextReady, username, tok);
                                     }
                                     if (!res.contains("Error:"))
                                         clientTokens.put(socketChannel, tok);
@@ -197,6 +160,10 @@ public class Server implements GameCallback{
                             buffer.flip();
                             socketChannel.write(buffer);
                             buffer.clear();
+                            if (startGame){
+                                startGame(nextReady);
+                                startGame = false;
+                            }
 
                         } else if (message.startsWith("logout")) {
                             String answer;
@@ -258,6 +225,44 @@ public class Server implements GameCallback{
         }
     }
 
+    private String gameHandling(SocketChannel socketChannel, Integer nextReady, String username, String tok) throws IOException {
+        String res;
+        res = "Login Token: " + tok + "\nWelcome " + username + "!\n";
+        if (leftInGame.containsKey(username)) {
+            sendMessageToPlayers(playing, username + " has reconnected!", leftInGame.get(username));
+            res += username + " has reconnected!";
+            playing.put(socketChannel, leftInGame.get(username));
+            leftInGame.remove(username);
+        } else {
+            if (currentPlayers < playersPerGame - 1) {
+                currentPlayers++;
+                String m = "Waiting for players [" + currentPlayers + " / " + playersPerGame + "]";
+                res += m;
+                sendMessageToPlayers(playing, m, nextReady);
+                playing.put(socketChannel, nextReady);
+            } else if (currentPlayers < playersPerGame) {
+                currentPlayers++;
+                res += "Game Starting!";
+                playing.put(socketChannel, nextReady);
+                startGame = true;
+            } else {
+                inQueue.put(socketChannel, inQueue.size() + 1);
+                res += "You are in the Queue!\nPosition in Queue: " + inQueue.get(socketChannel);
+            }
+        }
+        return res;
+    }
+
+    private void startGame(Integer nextReady) throws IOException {
+        List<SocketChannel> sockets = sendMessageToPlayers(playing, "Game Starting!", nextReady);
+        List<String> usernames = new ArrayList<>();
+        for (SocketChannel socket : sockets) {
+            usernames.add(auth.getTokens().get(clientTokens.get(socket)));
+        }
+        games.get(nextReady).povoate_users(usernames);
+        threadPool.submit(games.get(nextReady));
+    }
+
     public static void main(String[] args) throws IOException {
         Server server = new Server(10);
         server.runServer();
@@ -294,8 +299,8 @@ public class Server implements GameCallback{
         }
     }
 
-    private static int getNextReady(List<GameRunner> games){
-        for (int i=0;i<games.size();i++){
+    private static int getNextReady(List<GameRunner> games) {
+        for (int i = 0; i < games.size(); i++) {
             if (!games.get(i).isAlive())
                 return i;
         }
@@ -323,7 +328,7 @@ public class Server implements GameCallback{
     private static void sendGameMessages(HashMap<String, SocketChannel> receivers, List<String> usernames, List<String> messages) throws IOException {
         // hashmap: username -> socketchannel
         ByteBuffer byteBuffer = ByteBuffer.allocate(BUFFER_SIZE);
-        for (int i = 0; i<usernames.size();i++){
+        for (int i = 0; i < usernames.size(); i++) {
             SocketChannel socketChannel = receivers.get(usernames.get(i));
             byteBuffer.put(messages.get(i).getBytes());
             byteBuffer.flip();
@@ -335,10 +340,13 @@ public class Server implements GameCallback{
     public void onUpdate(Game game, int index) {
         ArrayList<String> answers = game.getMessageForServer();
         ArrayList<String> usernames = game.getUsernameFromMessageForServer();
+        System.out.println("CALLBACK");
+        System.out.println(answers);
+        System.out.println(usernames);
         HashMap<String, SocketChannel> usernameToSocket = (HashMap<String, SocketChannel>) getUsernamesToSocketChannelsForGame(clientTokens, playing, auth.getTokens(), index);
         try {
             sendGameMessages(usernameToSocket, usernames, answers);
-            System.out.println("Game " + index + "finished!");
+            System.out.println("Game " + index + " finished!");
         } catch (IOException e) {
             System.out.println("Unable to send game messages!");
         }

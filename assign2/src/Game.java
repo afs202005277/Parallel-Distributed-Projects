@@ -21,8 +21,10 @@ public class Game {
 
     private int iterations;
 
-    public boolean isEnded(){
-        return iterations < Game.interactions_before_end_game;
+    private boolean changed = false;
+
+    public boolean isEnded() {
+        return iterations >= Game.interactions_before_end_game;
     }
 
     public void sendMessage(String username, String message) {
@@ -51,16 +53,14 @@ public class Game {
         return numPlayers;
     }
 
-    public void nextIteration() {
+    public boolean hasChanged(){return changed;}
 
-        System.out.println("hello?");
-        while(messages.isEmpty()){
-            System.out.println(messages);
-            continue;
-        }
+    public void nextIteration() {
+        changed = false;
         System.out.println("outside is empty");
 
         while (!this.messages.isEmpty()) {
+            changed = true;
             iterations++;
             game_logic(this.username_message.get(0));
             messages.remove(0);
@@ -68,7 +68,7 @@ public class Game {
         }
     }
 
-    public void processEndGame(){
+    public void processEndGame() {
         for (String user : this.usernames) {
             this.message_for_server.add("GAME_OVER");
             this.username_message_for_server.add(user);
