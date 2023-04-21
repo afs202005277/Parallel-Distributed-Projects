@@ -56,15 +56,13 @@ public class Game {
     public boolean hasChanged(){return changed;}
 
     public void nextIteration() {
-        changed = false;
         System.out.println("outside is empty");
 
         while (!this.messages.isEmpty()) {
-            changed = true;
             iterations++;
-            game_logic(this.username_message.get(0));
+            game_logic(username_message.get(0));
             messages.remove(0);
-            this.username_message.remove(0);
+            username_message.remove(0);
         }
     }
 
@@ -133,7 +131,6 @@ public class Game {
             message_action = "Player died";
         }
         this.message_for_server.add(message_action);
-        this.message_for_server.add(username);
-        System.out.println(message_action);
+        this.username_message_for_server.add(username);
     }
 }

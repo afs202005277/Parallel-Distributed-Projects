@@ -15,6 +15,7 @@ public class Client {
         String token = "";
         boolean canWrite = true;
         do {
+            System.out.println(canWrite);
             buffer.clear();
             String message = "";
             if (canWrite) {

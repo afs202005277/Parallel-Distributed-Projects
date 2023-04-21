@@ -1,17 +1,25 @@
 import java.io.IOException;
+import java.io.OutputStream;
+import java.io.PrintWriter;
 import java.net.InetSocketAddress;
 import java.net.SocketException;
 import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
+import java.nio.charset.Charset;
+import java.nio.charset.CharsetEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class Server implements GameCallback {
     public static final int BUFFER_SIZE = 4096;
+    private final static CharsetEncoder encoder = (StandardCharsets.UTF_8).newEncoder();
+    private static ByteBuffer buffer = ByteBuffer.allocate(BUFFER_SIZE);
     private final ServerSocketChannel serverSocketChannel;
     private final Selector selector;
     private final ExecutorService threadPool;
@@ -30,7 +38,6 @@ public class Server implements GameCallback {
 
     // username -> index of the game where player was playing but crashed
     private final HashMap<String, Integer> leftInGame;
-
     private int currentPlayers;
 
     public Server(int maxGames) throws IOException {
@@ -107,7 +114,7 @@ public class Server implements GameCallback {
 
                         if (playing.get(socketChannel) != null) {
                             int index = playing.get(socketChannel);
-                            games.get(index).sendMessage(auth.getTokens().get(clientTokens.get(socketChannel)), message);
+                            games.get(index).sendMessage(socketToUsername(socketChannel), message);
                         } else if (message.startsWith("register")) {
                             String[] parts = message.split(" ");
                             String res;
@@ -155,11 +162,7 @@ public class Server implements GameCallback {
                                     res = "Error: You are already logged in!";
                                 }
                             }
-                            buffer.put(new byte[BUFFER_SIZE]);
-                            buffer.put(0, res.getBytes());
-                            buffer.flip();
-                            socketChannel.write(buffer);
-                            buffer.clear();
+                            sendMessage(socketChannel, res);
                             if (startGame){
                                 startGame(nextReady);
                                 startGame = false;
@@ -203,26 +206,32 @@ public class Server implements GameCallback {
                                     answer = "Invalid token!";
                                 }
                             }
-                            buffer.put(new byte[BUFFER_SIZE]);
-                            buffer.put(0, answer.getBytes());
-                            buffer.flip();
-                            socketChannel.write(buffer);
-                            buffer.clear();
+                            sendMessage(socketChannel, answer);
                             if (canceled)
                                 socketChannel.close();
 
                         } else {
                             // Echo back the received message
-                            buffer.put(new byte[BUFFER_SIZE]);
-                            buffer.put(0, (message).getBytes());
-                            buffer.flip();
-                            socketChannel.write(buffer);
-                            buffer.clear();
+                            sendMessage(socketChannel, message);
                         }
                     }
                 }
             }
         }
+    }
+
+    private String socketToUsername(SocketChannel socketChannel) {
+        String token = clientTokens.get(socketChannel);
+        return tokenToUsername(token);
+    }
+
+    private String tokenToUsername(String token){
+        for(Map.Entry<String, String> entry: auth.getTokens().entrySet()) {
+            if(Objects.equals(entry.getValue(), token)) {
+                return entry.getKey();
+            }
+        }
+        return "";
     }
 
     private String gameHandling(SocketChannel socketChannel, Integer nextReady, String username, String tok) throws IOException {
@@ -269,15 +278,10 @@ public class Server implements GameCallback {
     }
 
     private static List<SocketChannel> sendMessageToPlayers(Map<SocketChannel, Integer> clients, String message, Integer index) throws IOException {
-        ByteBuffer buffer = ByteBuffer.allocate(BUFFER_SIZE);
         List<SocketChannel> sockets = new ArrayList<>();
         for (SocketChannel client : clients.keySet()) {
             if (clients.get(client).equals(index)) {
-                buffer.put(new byte[BUFFER_SIZE]);
-                buffer.put(0, message.getBytes());
-                buffer.flip();
-                client.write(buffer);
-                buffer.clear();
+                sendMessage(client, message);
                 sockets.add(client);
             }
         }
@@ -285,16 +289,11 @@ public class Server implements GameCallback {
     }
 
     private static void updateQueue(Map<SocketChannel, Integer> clients) throws IOException {
-        ByteBuffer buffer = ByteBuffer.allocate(BUFFER_SIZE);
         int i = 1;
         for (SocketChannel client : clients.keySet()) {
-            buffer.put(new byte[BUFFER_SIZE]);
             String m = "Position in Queue: " + i;
             clients.replace(client, i);
-            buffer.put(0, m.getBytes());
-            buffer.flip();
-            client.write(buffer);
-            buffer.clear();
+            sendMessage(client, m);
             i++;
         }
     }
@@ -307,32 +306,25 @@ public class Server implements GameCallback {
         return -1;
     }
 
-    public static Map<String, SocketChannel> getUsernamesToSocketChannelsForGame(Map<SocketChannel, String> clientTokens, Map<SocketChannel, Integer> playing, Map<String, String> tokensToUsername, int gameIndex) {
-
+    public Map<String, SocketChannel> getUsernamesToSocketChannelsForGame(int gameIndex) {
         Map<String, SocketChannel> usernamesToSocketChannels = new HashMap<>();
-
         for (Map.Entry<SocketChannel, Integer> entry : playing.entrySet()) {
             SocketChannel socketChannel = entry.getKey();
             int index = entry.getValue();
             String token = clientTokens.get(socketChannel);
-
             if (index == gameIndex) {
-                String username = tokensToUsername.get(token);
+                String username = tokenToUsername(token);
                 usernamesToSocketChannels.put(username, socketChannel);
             }
         }
-
         return usernamesToSocketChannels;
     }
 
     private static void sendGameMessages(HashMap<String, SocketChannel> receivers, List<String> usernames, List<String> messages) throws IOException {
-        // hashmap: username -> socketchannel
-        ByteBuffer byteBuffer = ByteBuffer.allocate(BUFFER_SIZE);
+        // receivers: username -> socketchannel
         for (int i = 0; i < usernames.size(); i++) {
             SocketChannel socketChannel = receivers.get(usernames.get(i));
-            byteBuffer.put(messages.get(i).getBytes());
-            byteBuffer.flip();
-            socketChannel.write(byteBuffer);
+            sendMessage(socketChannel, messages.get(i));
         }
     }
 
@@ -343,12 +335,18 @@ public class Server implements GameCallback {
         System.out.println("CALLBACK");
         System.out.println(answers);
         System.out.println(usernames);
-        HashMap<String, SocketChannel> usernameToSocket = (HashMap<String, SocketChannel>) getUsernamesToSocketChannelsForGame(clientTokens, playing, auth.getTokens(), index);
+        HashMap<String, SocketChannel> usernameToSocket = (HashMap<String, SocketChannel>) getUsernamesToSocketChannelsForGame(index);
         try {
             sendGameMessages(usernameToSocket, usernames, answers);
             System.out.println("Game " + index + " finished!");
         } catch (IOException e) {
             System.out.println("Unable to send game messages!");
         }
+    }
+
+    public static void sendMessage(SocketChannel socketChannel, String message) throws IOException {
+        buffer.put(0, new byte[buffer.limit()]);
+        buffer = encoder.encode(CharBuffer.wrap(message));
+        socketChannel.write(buffer);
     }
 }

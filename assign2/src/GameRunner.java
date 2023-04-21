@@ -26,8 +26,7 @@ public class GameRunner extends Thread{
             System.out.println("inside runner");
             game.nextIteration();
             System.out.println("After game iteration");
-            if (game.hasChanged())
-                gameCallback.onUpdate(game, index);
+            gameCallback.onUpdate(game, index);
         } while (!game.isEnded());
         game.processEndGame();
     }
