@@ -7,23 +7,21 @@ public class Game {
     private static final int numPlayers = 2; // must be even
     private static final int interactions_before_end_game = 4;
 
-    private static final String game_over_message = "GAME_OVER";
+    private static final String game_over_message = "Game over: ";
 
 
-    private ArrayList<String> message_for_server;
-    private ArrayList<String> username_message_for_server;
+    private final ArrayList<String> message_for_server;
+    private final ArrayList<String> username_message_for_server;
 
     private int game_score = 0;
 
     private ArrayList<String> usernames;
-    private ArrayList<Integer> usernames_points;
+    private final ArrayList<Integer> usernames_points;
 
-    private ArrayList<String> username_message;
-    private ArrayList<String> messages;
+    private final ArrayList<String> username_message;
+    private final ArrayList<String> messages;
 
     private int iterations;
-
-    private boolean changed = false;
 
     public static String getGameOverMessage(){
         return game_over_message;
@@ -57,8 +55,6 @@ public class Game {
         return numPlayers;
     }
 
-    public boolean hasChanged(){return changed;}
-
     public void nextIteration() {
         while (!this.messages.isEmpty()) {
             iterations++;
@@ -69,9 +65,9 @@ public class Game {
     }
 
     public void processEndGame() {
-        for (String user : this.usernames) {
-            this.message_for_server.add(game_over_message);
-            this.username_message_for_server.add(user);
+        for (int i = 0;i <usernames.size();i++) {
+            this.message_for_server.add(game_over_message + "You scored " + usernames_points.get(i) + " points!\n");
+            this.username_message_for_server.add(usernames.get(i));
         }
 
         for (int i = 0; i < usernames_points.size(); i++) {
