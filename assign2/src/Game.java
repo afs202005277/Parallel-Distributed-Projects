@@ -56,7 +56,6 @@ public class Game {
     public boolean hasChanged(){return changed;}
 
     public void nextIteration() {
-        System.out.println("outside is empty");
 
         while (!this.messages.isEmpty()) {
             iterations++;
@@ -91,11 +90,15 @@ public class Game {
     }
 
     public ArrayList<String> getMessageForServer() {
-        return this.message_for_server;
+        ArrayList<String> res = new ArrayList<>(message_for_server);
+        message_for_server.clear();
+        return res;
     }
 
     public ArrayList<String> getUsernameFromMessageForServer() {
-        return this.username_message_for_server;
+        ArrayList<String> res = new ArrayList<>(username_message_for_server);
+        username_message_for_server.clear();
+        return res;
     }
 
     private void add_score(String username, int addition) {

@@ -24,6 +24,7 @@ public class Server implements GameCallback {
     private final Selector selector;
     private final ExecutorService threadPool;
     private final ArrayList<GameRunner> games;
+
     private final int playersPerGame;
     private boolean startGame = false;
     private final Authentication auth;
@@ -115,6 +116,7 @@ public class Server implements GameCallback {
                         if (playing.get(socketChannel) != null) {
                             int index = playing.get(socketChannel);
                             games.get(index).sendMessage(socketToUsername(socketChannel), message);
+                            games.get(index).wakeUp();
                         } else if (message.startsWith("register")) {
                             String[] parts = message.split(" ");
                             String res;
@@ -132,10 +134,7 @@ public class Server implements GameCallback {
                                 if (!res.contains("Error:"))
                                     clientTokens.put(socketChannel, tok);
                             }
-                            buffer.put(res.getBytes());
-                            buffer.flip();
-                            socketChannel.write(buffer);
-                            buffer.clear();
+                            sendMessage(socketChannel, res);
                             if (startGame){
                                 startGame(nextReady);
                                 startGame = false;
@@ -266,7 +265,7 @@ public class Server implements GameCallback {
         List<SocketChannel> sockets = sendMessageToPlayers(playing, "Game Starting!", nextReady);
         List<String> usernames = new ArrayList<>();
         for (SocketChannel socket : sockets) {
-            usernames.add(auth.getTokens().get(clientTokens.get(socket)));
+            usernames.add(socketToUsername(socket));
         }
         games.get(nextReady).povoate_users(usernames);
         threadPool.submit(games.get(nextReady));
@@ -323,6 +322,10 @@ public class Server implements GameCallback {
     private static void sendGameMessages(HashMap<String, SocketChannel> receivers, List<String> usernames, List<String> messages) throws IOException {
         // receivers: username -> socketchannel
         for (int i = 0; i < usernames.size(); i++) {
+            if (usernames.get(i).equals("pedro")){
+                System.out.println("ErrorServer");
+                System.out.println(messages.get(i));
+            }
             SocketChannel socketChannel = receivers.get(usernames.get(i));
             sendMessage(socketChannel, messages.get(i));
         }
@@ -338,7 +341,6 @@ public class Server implements GameCallback {
         HashMap<String, SocketChannel> usernameToSocket = (HashMap<String, SocketChannel>) getUsernamesToSocketChannelsForGame(index);
         try {
             sendGameMessages(usernameToSocket, usernames, answers);
-            System.out.println("Game " + index + " finished!");
         } catch (IOException e) {
             System.out.println("Unable to send game messages!");
         }

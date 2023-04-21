@@ -15,7 +15,6 @@ public class Client {
         String token = "";
         boolean canWrite = true;
         do {
-            System.out.println(canWrite);
             buffer.clear();
             String message = "";
             if (canWrite) {
@@ -30,6 +29,7 @@ public class Client {
                 socketChannel.write(buffer);
                 buffer.clear();
             }
+            buffer.put(0, new byte[buffer.limit()]);
             socketChannel.read(buffer);
             String tmp = new String(buffer.array()).trim();
             if (canWrite) {
@@ -72,4 +72,5 @@ public class Client {
         System.out.println("Message received: " + new String(buffer.array()).trim());
         socketChannel.close();
     }
+
 }
