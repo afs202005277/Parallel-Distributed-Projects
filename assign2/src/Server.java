@@ -247,7 +247,6 @@ public class Server implements GameCallback {
                 playing.put(socketChannel, nextReady);
             } else if (currentPlayers < playersPerGame) {
                 currentPlayers++;
-                res += "Game Starting!";
                 playing.put(socketChannel, nextReady);
                 startGame = true;
             } else {
