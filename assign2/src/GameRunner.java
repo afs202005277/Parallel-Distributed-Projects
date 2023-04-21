@@ -52,5 +52,6 @@ public class GameRunner extends Thread {
             }
         } while (!game.isEnded());
         game.processEndGame();
+        gameCallback.onUpdate(game, index);
     }
 }

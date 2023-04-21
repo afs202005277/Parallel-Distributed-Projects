@@ -5,7 +5,9 @@ import java.util.Random;
 public class Game {
 
     private static final int numPlayers = 2; // must be even
-    private static final int interactions_before_end_game = 20;
+    private static final int interactions_before_end_game = 4;
+
+    private static final String game_over_message = "GAME_OVER";
 
 
     private ArrayList<String> message_for_server;
@@ -23,6 +25,10 @@ public class Game {
 
     private boolean changed = false;
 
+    public static String getGameOverMessage(){
+        return game_over_message;
+    }
+
     public boolean isEnded() {
         return iterations >= Game.interactions_before_end_game;
     }
@@ -30,8 +36,6 @@ public class Game {
     public void sendMessage(String username, String message) {
         username_message.add(username);
         messages.add(message);
-        System.out.println(messages);
-        System.out.println("INSIDE GAME:" + message);
     }
 
     public Game() {
@@ -56,7 +60,6 @@ public class Game {
     public boolean hasChanged(){return changed;}
 
     public void nextIteration() {
-
         while (!this.messages.isEmpty()) {
             iterations++;
             game_logic(username_message.get(0));
@@ -67,7 +70,7 @@ public class Game {
 
     public void processEndGame() {
         for (String user : this.usernames) {
-            this.message_for_server.add("GAME_OVER");
+            this.message_for_server.add(game_over_message);
             this.username_message_for_server.add(user);
         }
 

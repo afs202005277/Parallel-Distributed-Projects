@@ -1,6 +1,4 @@
 import java.io.IOException;
-import java.io.OutputStream;
-import java.io.PrintWriter;
 import java.net.InetSocketAddress;
 import java.net.SocketException;
 import java.nio.ByteBuffer;
@@ -9,7 +7,6 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
-import java.nio.charset.Charset;
 import java.nio.charset.CharsetEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -135,7 +132,7 @@ public class Server implements GameCallback {
                                     clientTokens.put(socketChannel, tok);
                             }
                             sendMessage(socketChannel, res);
-                            if (startGame){
+                            if (startGame) {
                                 startGame(nextReady);
                                 startGame = false;
                             }
@@ -162,7 +159,7 @@ public class Server implements GameCallback {
                                 }
                             }
                             sendMessage(socketChannel, res);
-                            if (startGame){
+                            if (startGame) {
                                 startGame(nextReady);
                                 startGame = false;
                             }
@@ -176,7 +173,7 @@ public class Server implements GameCallback {
                             } else {
                                 String token = parts[1];
                                 if (clientTokens.containsValue(token)) {
-                                    answer = "Success!";
+                                    answer = "Logout successful!";
                                     if (currentPlayers < playersPerGame) {
                                         currentPlayers--;
                                         playing.remove(socketChannel);
@@ -224,9 +221,9 @@ public class Server implements GameCallback {
         return tokenToUsername(token);
     }
 
-    private String tokenToUsername(String token){
-        for(Map.Entry<String, String> entry: auth.getTokens().entrySet()) {
-            if(Objects.equals(entry.getValue(), token)) {
+    private String tokenToUsername(String token) {
+        for (Map.Entry<String, String> entry : auth.getTokens().entrySet()) {
+            if (Objects.equals(entry.getValue(), token)) {
                 return entry.getKey();
             }
         }
@@ -322,10 +319,6 @@ public class Server implements GameCallback {
     private static void sendGameMessages(HashMap<String, SocketChannel> receivers, List<String> usernames, List<String> messages) throws IOException {
         // receivers: username -> socketchannel
         for (int i = 0; i < usernames.size(); i++) {
-            if (usernames.get(i).equals("pedro")){
-                System.out.println("ErrorServer");
-                System.out.println(messages.get(i));
-            }
             SocketChannel socketChannel = receivers.get(usernames.get(i));
             sendMessage(socketChannel, messages.get(i));
         }
@@ -335,10 +328,13 @@ public class Server implements GameCallback {
     public void onUpdate(Game game, int index) {
         ArrayList<String> answers = game.getMessageForServer();
         ArrayList<String> usernames = game.getUsernameFromMessageForServer();
-        System.out.println("CALLBACK");
-        System.out.println(answers);
-        System.out.println(usernames);
         HashMap<String, SocketChannel> usernameToSocket = (HashMap<String, SocketChannel>) getUsernamesToSocketChannelsForGame(index);
+        if (!answers.isEmpty() && answers.get(0).contains(Game.getGameOverMessage())){
+            for (int i=0;i<usernames.size();i++){
+                playing.remove(usernameToSocket.get(usernames.get(i)));
+                answers.set(i, answers.get(i) + "\n" + "DISCONNECT");
+            }
+        }
         try {
             sendGameMessages(usernameToSocket, usernames, answers);
         } catch (IOException e) {

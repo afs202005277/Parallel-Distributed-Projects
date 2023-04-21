@@ -32,6 +32,10 @@ public class Client {
             buffer.put(0, new byte[buffer.limit()]);
             socketChannel.read(buffer);
             String tmp = new String(buffer.array()).trim();
+            if (tmp.contains("DISCONNECT")){
+                System.out.println(tmp.substring(0, tmp.indexOf("DISCONNECT")));
+                break;
+            }
             if (canWrite) {
                 if (message.startsWith("login") || message.startsWith("register")) {
                     if (!tmp.startsWith("Error") && !tmp.startsWith("Usage")) {
@@ -39,14 +43,16 @@ public class Client {
                         final String tok = token;
                         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
                                 try {
-                                    buffer.clear();
-                                    buffer.put(new byte[4096]);
-                                    buffer.put(0, ("logout " + tok).getBytes());
-                                    buffer.flip();
-                                    socketChannel.write(buffer);
-                                    buffer.clear();
-                                    socketChannel.read(buffer);
-                                    socketChannel.close();
+                                    if (socketChannel.isOpen()){
+                                        buffer.clear();
+                                        buffer.put(new byte[4096]);
+                                        buffer.put(0, ("logout " + tok).getBytes());
+                                        buffer.flip();
+                                        socketChannel.write(buffer);
+                                        buffer.clear();
+                                        socketChannel.read(buffer);
+                                        socketChannel.close();
+                                    }
                                 } catch (IOException e) {
                                     System.out.println("ERROR");
                                 }
@@ -68,6 +74,7 @@ public class Client {
         buffer.flip();
         socketChannel.write(buffer);
         buffer.clear();
+        buffer.put(new byte[buffer.limit()]);
         socketChannel.read(buffer);
         System.out.println("Message received: " + new String(buffer.array()).trim());
         socketChannel.close();
