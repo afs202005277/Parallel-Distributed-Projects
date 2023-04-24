@@ -94,7 +94,7 @@ public class Server implements GameCallback {
                     if (socketChannel.isOpen()) {
                         try {
                             numRead = socketChannel.read(buffer);
-                        } catch (SocketException socketException) {
+                        } catch (IOException ioException) {
                             disconected = true;
                         }
                     }

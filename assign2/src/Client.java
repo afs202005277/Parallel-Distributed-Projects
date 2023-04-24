@@ -8,7 +8,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
 public class Client {
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws IOException, InterruptedException {
 
         SocketChannel socketChannel = SocketChannel.open();
         socketChannel.connect(new InetSocketAddress("localhost", 8080));
@@ -18,14 +18,20 @@ public class Client {
         String token = "";
         boolean canWrite = true;
         BlockingQueue<String> inputQueue = new LinkedBlockingQueue<>();
-        new Thread(() -> {
+        Thread input_thread = new Thread(() -> {
             while (true) {
-                if (scanner.hasNextLine()) {
-                    String line = scanner.nextLine();
-                    inputQueue.offer(line);
+                try {
+                    if (scanner.hasNextLine()) {
+                        String line = scanner.nextLine();
+                        inputQueue.offer(line);
+                        Thread.sleep(1);
+                    }
+                } catch (InterruptedException ie) {
+                    break;
                 }
             }
-        }).start();
+        });
+        input_thread.start();
         boolean msgPrinted = false;
         do {
             buffer.clear();
@@ -93,8 +99,11 @@ public class Client {
         socketChannel.write(buffer);
         buffer.clear();
         buffer.put(new byte[buffer.limit()]);
+        socketChannel.configureBlocking(true);
         socketChannel.read(buffer);
+        input_thread.interrupt();
         socketChannel.close();
+        System.out.println("Write anything to disconnect: ");
     }
 
 }
