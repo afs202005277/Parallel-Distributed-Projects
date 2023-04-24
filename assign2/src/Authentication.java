@@ -5,18 +5,24 @@ import java.util.UUID;
 public class Authentication {
     // username -> token
     private final Hashtable<String, String> tokens;
+    private final Hashtable<String, Integer> ranks;
     private final String tokensFileName;
     private final String usersFileName;
+
+    private final String rankFileName;
 
     public Hashtable<String, String> getTokens() {
         return tokens;
     }
 
-    public Authentication(String filename, String usersFileName) throws IOException {
+    public Authentication(String filename, String usersFileName, String rankFileName) throws IOException {
         this.tokensFileName = filename;
         this.usersFileName = usersFileName;
+        this.rankFileName = rankFileName;
         tokens = new Hashtable<>();
+        ranks = new Hashtable<>();
         loadTokensFromFile();
+        loadRanksFromFile();
     }
 
     public synchronized String login(String username, String password) throws IOException {
@@ -39,6 +45,18 @@ public class Authentication {
         return "Error: User not found!";
     }
 
+    private void loadRanksFromFile() throws IOException {
+        BufferedReader reader = new BufferedReader(new FileReader(rankFileName));
+        String line;
+        while ((line = reader.readLine()) != null) {
+            String[] parts = line.split(":");
+            if (parts.length == 2) {
+                ranks.put(parts[0], Integer.valueOf(parts[1]));
+            }
+        }
+        reader.close();
+    }
+
 
     private void loadTokensFromFile() throws IOException {
         BufferedReader reader = new BufferedReader(new FileReader(tokensFileName));
@@ -56,6 +74,7 @@ public class Authentication {
         String token = UUID.randomUUID().toString();
         tokens.put(username, token);
         saveTokensToFile();
+        saveRanksToFile();
         return token;
     }
 
@@ -71,6 +90,7 @@ public class Authentication {
     public synchronized void clearTokens() throws IOException{
         tokens.clear();
         saveTokensToFile();
+        saveRanksToFile();
     }
 
     public synchronized void invalidateToken(String token) throws IOException {
@@ -84,7 +104,12 @@ public class Authentication {
         if (username != null) {
             tokens.remove(username);
             saveTokensToFile();
+            saveRanksToFile();
         }
+    }
+
+    public synchronized Integer getRank(String username) {
+        return ranks.get(username);
     }
 
     public synchronized String registerUser(String username, String password) throws IOException {
@@ -105,6 +130,8 @@ public class Authentication {
         writer.write(username + ":" + password + "\n");
         writer.close();
 
+        ranks.put(username, 500); //Starting rank
+
         // Generate and return access token
         return this.createToken(username);
     }
@@ -114,6 +141,14 @@ public class Authentication {
         BufferedWriter writer = new BufferedWriter(new FileWriter(tokensFileName));
         for (String key : tokens.keySet()) {
             writer.write(key + ":" + tokens.get(key) + "\n");
+        }
+        writer.close();
+    }
+
+    private void saveRanksToFile() throws IOException {
+        BufferedWriter writer = new BufferedWriter(new FileWriter(rankFileName));
+        for (String key : ranks.keySet()) {
+            writer.write(key + ":" + ranks.get(key) + "\n");
         }
         writer.close();
     }

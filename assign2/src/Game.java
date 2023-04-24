@@ -23,6 +23,8 @@ public class Game {
 
     private int iterations;
 
+    private boolean hasStarted;
+
     public static String getGameOverMessage(){
         return game_over_message;
     }

@@ -12,17 +12,26 @@ public class GameRunner extends Thread {
 
     private boolean waiting;
 
+    private boolean hasStarted;
+
     public GameRunner(Game game, GameCallback callback, int index) {
         this.game = game;
         this.gameCallback = callback;
         this.index = index;
         this.lock = new Object();
         waiting = false;
+        hasStarted = false;
     }
 
     public void povoate_users(List<String> usernames) {
         this.game.povoate_users(usernames);
     }
+
+    public boolean isReady() {
+        return !game.isEnded() && !hasStarted;
+    }
+
+    public void startGame() { hasStarted = true;}
 
     public void sendMessage(String username, String message) {
         this.game.sendMessage(username, message);
