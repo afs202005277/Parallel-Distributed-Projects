@@ -406,40 +406,51 @@ public class Server implements GameCallback {
         ArrayList<String> answers = game.getMessageForServer();
         ArrayList<String> usernames = game.getUsernameFromMessageForServer();
         HashMap<String, SocketChannel> usernameToSocket = (HashMap<String, SocketChannel>) getUsernamesToSocketChannelsForGame(index);
-        if (game.isEnded()) {
-            game.setIterations(0);
-            game.processEndGame();
-            int i = 0;
-            for (i = 0; i < games.size(); i++)
-                if (games.get(i).getGame().equals(game)) break;
 
-            currentPlayers.set(i, 0);
-            ranks.set(i, "");
-            /*
-            for (String user : inQueue) {
-                SocketChannel client = null;
-                for (SocketChannel socketChannel : clientTokens.keySet())
-                    if (clientTokens.get(socketChannel).equals(user)) {
-                        client = socketChannel;
-                        break;
-                    }
-                int next = getNextReady(user);
-                String token = clien
-                gameHandling(client, next, user, token);
-                }
-             */
-
-        }
         if (!answers.isEmpty() && answers.get(0).contains(Game.getGameOverMessage())){
             for (int i=0;i<usernames.size();i++){
                 playing.remove(usernameToSocket.get(usernames.get(i)));
                 answers.set(i, answers.get(i) + "\n" + "DISCONNECT");
             }
+            try {
+                sendGameMessages(usernameToSocket, usernames, answers);
+            } catch (IOException e) {
+                System.out.println("Unable to send game messages!");
+            }
+
+            currentPlayers.set(index, 0);
+            ranks.set(index, "");
+
+            for (int i = 0; i < inQueue.size(); i++) {
+                String user = inQueue.get(i);
+                String token = auth.getToken(user);
+                SocketChannel client = null;
+                for (SocketChannel socketChannel : clientTokens.keySet())
+                    if (clientTokens.get(socketChannel).equals(token)) {
+                        client = socketChannel;
+                        break;
+                    }
+                inQueue.remove(user);
+                i--;
+                int next = getNextReady(user);
+                try {
+                    String res = gameHandling(client, next, user, token);
+                    sendMessage(client, res);
+                    if (startGame) {
+                        startGame(startGameIdx);
+                        startGame = false;
+                    }
+                } catch (Exception e) {
+                    System.out.println("ERROR");
+                }
+            }
         }
-        try {
-            sendGameMessages(usernameToSocket, usernames, answers);
-        } catch (IOException e) {
-            System.out.println("Unable to send game messages!");
+        else {
+            try {
+                sendGameMessages(usernameToSocket, usernames, answers);
+            } catch (IOException e) {
+                System.out.println("Unable to send game messages!");
+            }
         }
     }
 

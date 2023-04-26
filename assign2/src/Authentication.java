@@ -78,6 +78,10 @@ public class Authentication {
         return token;
     }
 
+    public synchronized String getToken(String username) {
+        return tokens.get(username);
+    }
+
     public synchronized String getUserName(String token) {
         for (String key : tokens.keySet()) {
             if (tokens.get(key).equals(token)) {

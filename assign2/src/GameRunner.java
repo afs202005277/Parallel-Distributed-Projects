@@ -31,9 +31,9 @@ public class GameRunner extends Thread {
         return !hasStarted;
     }
 
-    public Game getGame() {return game;}
-
     public void startGame() { hasStarted = true;}
+
+    public void finishGame() { hasStarted = false; }
 
     public void sendMessage(String username, String message) {
         this.game.sendMessage(username, message);
@@ -62,6 +62,8 @@ public class GameRunner extends Thread {
                 waiting = true;
             }
         } while (!game.isEnded());
+        game.setIterations(0);
+        game.processEndGame();
         hasStarted = false;
         gameCallback.onUpdate(game, index);
     }
