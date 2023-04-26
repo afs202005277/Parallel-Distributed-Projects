@@ -5,7 +5,7 @@ import java.nio.channels.SocketChannel;
 import java.util.*;
 import java.util.Random;
 
-public class Game {
+public class Game implements Cloneable{
 
     private static final int numPlayers = 2; // must be even
     private static final int interactions_before_end_game = 4;
@@ -14,16 +14,16 @@ public class Game {
 
     private String fileName;
 
-    private final ArrayList<String> message_for_server;
-    private final ArrayList<String> username_message_for_server;
+    private ArrayList<String> message_for_server;
+    private ArrayList<String> username_message_for_server;
 
     private int game_score = 0;
 
     private ArrayList<String> usernames;
-    private final ArrayList<Integer> usernames_points;
+    private ArrayList<Integer> usernames_points;
 
-    private final ArrayList<String> username_message;
-    private final ArrayList<String> messages;
+    private ArrayList<String> username_message;
+    private ArrayList<String> messages;
 
     private int iterations;
 
@@ -206,6 +206,23 @@ public class Game {
                 this.message_for_server.add(username + " " + other_players_message_action);
                 this.username_message_for_server.add(user);
             }
+        }
+    }
+
+    @Override
+    public Game clone() {
+        try {
+            Game clone = (Game) super.clone();
+            clone.fileName = fileName;
+            clone.iterations = 0;
+            clone.message_for_server = new ArrayList<>();
+            clone.username_message_for_server = new ArrayList<>();
+            clone.usernames_points = new ArrayList<>();
+            clone.username_message = new ArrayList<>();
+            clone.messages = new ArrayList<>();
+            return clone;
+        } catch (CloneNotSupportedException e) {
+            throw new AssertionError();
         }
     }
 }

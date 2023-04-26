@@ -2,7 +2,7 @@ import java.nio.channels.SocketChannel;
 import java.util.List;
 
 public class GameRunner extends Thread {
-    private final Game game;
+    private Game game;
 
     private final Object lock;
 
@@ -21,6 +21,10 @@ public class GameRunner extends Thread {
         this.lock = new Object();
         waiting = false;
         hasStarted = false;
+    }
+
+    public void setGame(Game game) {
+        this.game = game;
     }
 
     public void povoate_users(List<String> usernames) {

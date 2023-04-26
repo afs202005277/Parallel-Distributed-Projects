@@ -23,6 +23,8 @@ public class Server implements GameCallback {
     private final ServerSocketChannel serverSocketChannel;
     private final Selector selector;
     private final ExecutorService threadPool;
+
+    private final Game gameModel;
     private final ArrayList<GameRunner> games;
 
     private final int playersPerGame;
@@ -48,15 +50,16 @@ public class Server implements GameCallback {
 
     private final List<String> ranks;
 
-    public Server(int maxGames) throws IOException {
+    public Server(int maxGames, Game game) throws IOException {
         serverSocketChannel = ServerSocketChannel.open();
         serverSocketChannel.socket().bind(new InetSocketAddress(8080));
         serverSocketChannel.configureBlocking(false);
 
         threadPool = Executors.newFixedThreadPool(maxGames);
+        this.gameModel = game.clone();
         games = new ArrayList<>();
         for (int i = 0; i < maxGames; i++) {
-            games.add(new GameRunner(new Game("src/ranks.txt"), this, i));
+            games.add(new GameRunner(gameModel.clone(), this, i));
         }
 
         selector = Selector.open();
@@ -197,7 +200,7 @@ public class Server implements GameCallback {
                                 if (clientTokens.containsValue(token)) {
                                     String username = auth.getUserName(token);
                                     answer = "Logout successful!";
-                                    Integer nextReady = getNextReady(username);
+                                    int nextReady = getNextReady(username);
                                     if (currentPlayers.get(nextReady) < playersPerGame) {
                                         currentPlayers.set(nextReady, currentPlayers.get(nextReady) - 1);
                                         playing.remove(socketChannel);
@@ -328,12 +331,13 @@ public class Server implements GameCallback {
             usernames.add(socketToUsername(socket));
         }
         games.get(nextReady).startGame();
+        games.get(nextReady).setGame(gameModel.clone());
         games.get(nextReady).povoate_users(usernames);
         threadPool.submit(games.get(nextReady));
     }
 
     public static void main(String[] args) throws IOException {
-        Server server = new Server(1);
+        Server server = new Server(1, new Game("src/ranks.txt"));
         server.runServer();
     }
 
