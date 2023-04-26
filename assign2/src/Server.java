@@ -34,7 +34,7 @@ public class Server implements GameCallback {
     private final HashMap<SocketChannel, Integer> playing;
 
     // channel -> index of the game where player is waiting
-    private final HashMap<SocketChannel, Integer> inQueue;
+    private final List<String> inQueue;
 
     // channel -> index of the game where player is waiting for other players
     private final HashMap<SocketChannel, Integer> waitingForPlayers;
@@ -65,7 +65,7 @@ public class Server implements GameCallback {
         playersPerGame = Game.getNumPlayers();
         currentPlayers = new ArrayList<>();
         playing = new HashMap<>();
-        inQueue = new HashMap<>();
+        inQueue = new ArrayList<>();
         waitingForPlayers = new HashMap<>();
         leftInGame = new HashMap<>();
         ranks = new ArrayList<>();
@@ -208,10 +208,6 @@ public class Server implements GameCallback {
                                             sendMessageToPlayers(playing, username + " has disconected!", idx);
                                         }
                                     }
-                                    if (inQueue.containsKey(socketChannel)) {
-                                        inQueue.remove(socketChannel);
-                                        updateQueue(inQueue);
-                                    }
 
                                     auth.invalidateToken(token);
                                     clientTokens.remove(socketChannel);
@@ -259,7 +255,12 @@ public class Server implements GameCallback {
             playing.put(socketChannel, leftInGame.get(username));
             leftInGame.remove(username);
         } else {
-            if (currentPlayers.get(nextReady) < playersPerGame - 1) {
+            if (nextReady.equals(-1)) {
+                if (!inQueue.contains(username))
+                    inQueue.add(username);
+                res += "You are in the Queue!\nPosition in Queue: " + (inQueue.indexOf(username) + 1);
+            }
+            else if (currentPlayers.get(nextReady) < playersPerGame - 1) {
                 currentPlayers.set(nextReady, currentPlayers.get(nextReady) + 1);
                 String m = "Waiting for players [" + currentPlayers.get(nextReady) + " / " + playersPerGame + "]";
                 m += " Server #" + nextReady;
@@ -267,7 +268,7 @@ public class Server implements GameCallback {
                 sendMessageToPlayers(playing, m, nextReady);
                 waitingForPlayers.put(socketChannel, nextReady);
             } else if (currentPlayers.get(nextReady) < playersPerGame) {
-                res += "Connected to Server #" + nextReady;
+                res += "Connected to Server #" + nextReady + "\n";
                 currentPlayers.set(nextReady, currentPlayers.get(nextReady) + 1);
                 Iterator<Map.Entry<SocketChannel, Integer>> iterator = waitingForPlayers.entrySet().iterator();
                 while (iterator.hasNext()) {
@@ -284,8 +285,9 @@ public class Server implements GameCallback {
                 startGame = true;
                 startGameIdx = nextReady;
             } else {
-                inQueue.put(socketChannel, inQueue.size() + 1);
-                res += "You are in the Queue!\nPosition in Queue: " + inQueue.get(socketChannel);
+                if (!inQueue.contains(username))
+                    inQueue.add(username);
+                res += "You are in the Queue!\nPosition in Queue: " + (inQueue.indexOf(username) + 1);
             }
         }
         return res;
