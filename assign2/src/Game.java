@@ -27,7 +27,9 @@ public class Game {
 
     private int iterations;
 
-    private boolean hasStarted;
+    public int getIterations() {return iterations;}
+
+    public void setIterations(int iterations) { this.iterations = iterations;}
 
     public static String getGameOverMessage() {
         return game_over_message;
