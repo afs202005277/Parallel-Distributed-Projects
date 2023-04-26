@@ -139,7 +139,7 @@ public class Server implements GameCallback {
                                 String username = parts[1];
                                 String password = parts[2];
                                 String tok = auth.registerUser(username, password);
-                                Integer nextReady = getNextReady(games, ranks, auth, username);
+                                Integer nextReady = getNextReady(username);
                                 if (tok.contains("Error"))
                                     res = tok;
                                 else {
@@ -162,7 +162,7 @@ public class Server implements GameCallback {
                             } else {
                                 String username = parts[1];
                                 String password = parts[2];
-                                Integer nextReady = getNextReady(games, ranks, auth, username);
+                                Integer nextReady = getNextReady(username);
                                 if (!auth.isLoggedIn(username)) {
                                     String tok = auth.login(username, password);
                                     if (tok.contains("Error"))
@@ -193,7 +193,7 @@ public class Server implements GameCallback {
                                 if (clientTokens.containsValue(token)) {
                                     String username = auth.getUserName(token);
                                     answer = "Logout successful!";
-                                    Integer nextReady = getNextReady(games, ranks, auth, username);
+                                    Integer nextReady = getNextReady(username);
                                     if (currentPlayers.get(nextReady) < playersPerGame) {
                                         currentPlayers.set(nextReady, currentPlayers.get(nextReady) - 1);
                                         playing.remove(socketChannel);
@@ -305,7 +305,7 @@ public class Server implements GameCallback {
     }
 
     public static void main(String[] args) throws IOException {
-        Server server = new Server(10);
+        Server server = new Server(1);
         server.runServer();
     }
 
@@ -330,7 +330,7 @@ public class Server implements GameCallback {
         }
     }
 
-    private static int getNextReady(List<GameRunner> games, List<String> ranks, Authentication auth, String username) {
+    private int getNextReady(String username) {
         for (int i = 0; i < games.size(); i++) {
             if (games.get(i).isReady()) {
                 if (ranks.get(i).equals("")) {
@@ -378,6 +378,30 @@ public class Server implements GameCallback {
         ArrayList<String> answers = game.getMessageForServer();
         ArrayList<String> usernames = game.getUsernameFromMessageForServer();
         HashMap<String, SocketChannel> usernameToSocket = (HashMap<String, SocketChannel>) getUsernamesToSocketChannelsForGame(index);
+        if (game.isEnded()) {
+            game.setIterations(0);
+            game.processEndGame();
+            int i = 0;
+            for (i = 0; i < games.size(); i++)
+                if (games.get(i).getGame().equals(game)) break;
+
+            currentPlayers.set(i, 0);
+            ranks.set(i, "");
+            /*
+            for (String user : inQueue) {
+                SocketChannel client = null;
+                for (SocketChannel socketChannel : clientTokens.keySet())
+                    if (clientTokens.get(socketChannel).equals(user)) {
+                        client = socketChannel;
+                        break;
+                    }
+                int next = getNextReady(user);
+                String token = clien
+                gameHandling(client, next, user, token);
+                }
+             */
+
+        }
         if (!answers.isEmpty() && answers.get(0).contains(Game.getGameOverMessage())){
             for (int i=0;i<usernames.size();i++){
                 playing.remove(usernameToSocket.get(usernames.get(i)));

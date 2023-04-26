@@ -31,6 +31,8 @@ public class GameRunner extends Thread {
         return !hasStarted;
     }
 
+    public Game getGame() {return game;}
+
     public void startGame() { hasStarted = true;}
 
     public void sendMessage(String username, String message) {
@@ -60,9 +62,7 @@ public class GameRunner extends Thread {
                 waiting = true;
             }
         } while (!game.isEnded());
-        game.setIterations(0);
         hasStarted = false;
-        game.processEndGame();
         gameCallback.onUpdate(game, index);
     }
 }
