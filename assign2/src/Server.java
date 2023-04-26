@@ -1,6 +1,5 @@
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.net.SocketException;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.channels.SelectionKey;
@@ -53,7 +52,7 @@ public class Server implements GameCallback {
         threadPool = Executors.newFixedThreadPool(maxGames);
         games = new ArrayList<>();
         for (int i = 0; i < maxGames; i++) {
-            games.add(new GameRunner(new Game(), this, i));
+            games.add(new GameRunner(new Game("src/ranks.txt"), this, i));
         }
 
         selector = Selector.open();
