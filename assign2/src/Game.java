@@ -109,32 +109,45 @@ public class Game {
 
     private void game_logic(String username) {
         Random rand = new Random();
-        String message_action = "Walked";
-        if (rand.nextFloat() < 0.10) {
-            message_action = "Planted the bomb";
+        String message_action_user = "Walked";
+        String other_players_message_action = "walked";
+        if (rand.nextFloat() < 0.01) {
+            message_action_user = "Planted the bomb";
+            other_players_message_action = "planted the bomb";
             this.add_score(username, 3);
-            if (usernames.indexOf(username) < numPlayers / 2)
+            if (usernames.indexOf(username) < numPlayers/2)
                 game_score += 3;
             else
                 game_score -= 3;
-        } else if (rand.nextFloat() < 0.50) {
-            message_action = "Killed a player";
+        } else if (rand.nextFloat() < 0.05) {
+            message_action_user = "Killed a player";
+            other_players_message_action = "killed a player";
             this.add_score(username, 2);
-            if (usernames.indexOf(username) < numPlayers / 2)
+            if (usernames.indexOf(username) < numPlayers/2)
                 game_score += 2;
             else
                 game_score -= 2;
-        } else if (rand.nextFloat() < 0.80) {
-            message_action = "Assisted on a kill";
+        } else if (rand.nextFloat() < 0.15) {
+            message_action_user = "Assisted on a kill";
+            other_players_message_action = "assisted on a kill";
             this.add_score(username, 1);
-            if (usernames.indexOf(username) < numPlayers / 2)
+            if (usernames.indexOf(username) < numPlayers/2)
                 game_score += 1;
             else
                 game_score -= 1;
-        } else if (rand.nextFloat() < 0.40) {
-            message_action = "Player died";
+        } else if (rand.nextFloat() < 0.10) {
+            message_action_user = "You died";
+            other_players_message_action = "died";
         }
-        this.message_for_server.add(message_action);
-        this.username_message_for_server.add(username);
+
+        for (String user : usernames) {
+            if (Objects.equals(user, username)) {
+                this.message_for_server.add(message_action_user);
+                this.username_message_for_server.add(username);
+            } else {
+                this.message_for_server.add(username + " " + other_players_message_action);
+                this.username_message_for_server.add(user);
+            }
+        }
     }
 }
