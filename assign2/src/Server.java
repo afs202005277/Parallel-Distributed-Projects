@@ -18,6 +18,7 @@ public class Server implements GameCallback {
     private final static int RELAX_MMR = 50;
     private final static int RELAX_AFTER_TIME = 10000; // time before relaxing the queue in ms
 
+    public final static String welcomeMessage = "Welcome to our server!\nPlease login or register a new account.\nIf you need any help, you can just send the \"help\" message.";
     private final static CharsetEncoder encoder = (StandardCharsets.UTF_8).newEncoder();
     private static ByteBuffer buffer = ByteBuffer.allocate(BUFFER_SIZE);
     private final ServerSocketChannel serverSocketChannel;
@@ -108,6 +109,7 @@ public class Server implements GameCallback {
                     System.out.println("Client connected: " + socketChannel.getRemoteAddress());
                     socketChannel.configureBlocking(false);
                     socketChannel.register(selector, SelectionKey.OP_READ);
+                    sendMessage(socketChannel, Server.welcomeMessage);
 
                 } else if (key.isReadable()) {
                     // Data received from a client
@@ -137,7 +139,14 @@ public class Server implements GameCallback {
                             int index = playing.get(socketChannel);
                             games.get(index).sendMessage(socketToUsername(socketChannel), message);
                             games.get(index).wakeUp();
-                        } else if (message.startsWith("register")) {
+                        } else if (message.startsWith("help")){
+                            String usageInstructions = """
+                                    Usage instructions:
+                                    Login: login <username> <password>
+                                    Register: register <username> <password>
+                                    """;
+                            sendMessage(socketChannel, usageInstructions);
+                        }else if (message.startsWith("register")) {
                             String[] parts = message.split(" ");
                             String res;
                             if (parts.length != 3)
@@ -325,7 +334,7 @@ public class Server implements GameCallback {
     }
 
     private void startGame(Integer nextReady) throws IOException {
-        List<SocketChannel> sockets = sendMessageToPlayers(playing, "Game Starting!", nextReady);
+        List<SocketChannel> sockets = sendMessageToPlayers(playing, "Game Starting!\n" + Game.welcomeMessage, nextReady);
         List<String> usernames = new ArrayList<>();
         for (SocketChannel socket : sockets) {
             usernames.add(socketToUsername(socket));
