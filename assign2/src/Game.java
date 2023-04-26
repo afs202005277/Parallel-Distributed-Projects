@@ -69,11 +69,6 @@ public class Game {
     }
 
     public void processEndGame() {
-        for (int i = 0;i <usernames.size();i++) {
-            this.message_for_server.add(game_over_message + "You scored " + usernames_points.get(i) + " points!\n");
-            this.username_message_for_server.add(usernames.get(i));
-        }
-
         for (int i = 0; i < usernames_points.size(); i++) {
             if (game_score < 0 && i < numPlayers / 2) {
                 usernames_points.set(i, -usernames_points.get(i));
@@ -81,6 +76,11 @@ public class Game {
             if (game_score > 0 && i >= numPlayers / 2) {
                 usernames_points.set(i, -usernames_points.get(i));
             }
+        }
+
+        for (int i = 0;i <usernames.size();i++) {
+            this.message_for_server.add(game_over_message + "You scored " + usernames_points.get(i) + " points!\n");
+            this.username_message_for_server.add(usernames.get(i));
         }
     }
 

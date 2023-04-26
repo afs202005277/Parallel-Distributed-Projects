@@ -12,9 +12,13 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 public class Server implements GameCallback {
     public static final int BUFFER_SIZE = 4096;
+    private final static int RELAX_MMR = 50;
+    private final static int RELAX_AFTER_TIME = 10000; // time before relaxing the queue in ms
+
     private final static CharsetEncoder encoder = (StandardCharsets.UTF_8).newEncoder();
     private static ByteBuffer buffer = ByteBuffer.allocate(BUFFER_SIZE);
     private final ServerSocketChannel serverSocketChannel;
@@ -88,8 +92,9 @@ public class Server implements GameCallback {
     }
 
     public void runServer() throws IOException {
+        long startTime = System.nanoTime();
         while (true) {
-            selector.select();
+            selector.selectNow();
             Iterator<SelectionKey> iterator = selector.selectedKeys().iterator();
             while (iterator.hasNext()) {
                 SelectionKey key = iterator.next();
@@ -229,6 +234,28 @@ public class Server implements GameCallback {
                     }
                 }
             }
+
+            if ((System.nanoTime() - startTime) / 1000000 > RELAX_AFTER_TIME) {
+                // change ranks
+
+                for (int i = 0; i < ranks.size(); i++) {
+                    if (!Objects.equals(ranks.get(i), "")) {
+                        if (!games.get(i).isReady()) {
+                            ranks.set(i, "");
+                            continue;
+                        }
+                        String[] parts = ranks.get(i).split("-");
+                        int rank_left = Integer.parseInt(parts[0]) - RELAX_MMR;
+                        int rank_right = Integer.parseInt(parts[1]) + RELAX_MMR;
+                        System.out.println("Relaxing queue on Server #" + i + ": " + rank_left + "-" + rank_right);
+                        ranks.set(i, rank_left + "-" + rank_right);
+                    }
+                }
+                startTime = System.nanoTime();
+
+
+            }
+
         }
     }
 
@@ -256,8 +283,9 @@ public class Server implements GameCallback {
             leftInGame.remove(username);
         } else {
             if (nextReady.equals(-1)) {
-                if (!inQueue.contains(username))
+                if (!inQueue.contains(username)) {
                     inQueue.add(username);
+                }
                 res += "You are in the Queue!\nPosition in Queue: " + (inQueue.indexOf(username) + 1);
             }
             else if (currentPlayers.get(nextReady) < playersPerGame - 1) {
@@ -285,8 +313,9 @@ public class Server implements GameCallback {
                 startGame = true;
                 startGameIdx = nextReady;
             } else {
-                if (!inQueue.contains(username))
+                if (!inQueue.contains(username)) {
                     inQueue.add(username);
+                }
                 res += "You are in the Queue!\nPosition in Queue: " + (inQueue.indexOf(username) + 1);
             }
         }
@@ -335,8 +364,8 @@ public class Server implements GameCallback {
             if (games.get(i).isReady()) {
                 if (ranks.get(i).equals("")) {
                     int rank = auth.getRank(username);
-                    int rank1 = rank - 50;
-                    int rank2 = rank + 50;
+                    int rank1 = rank - RELAX_MMR;
+                    int rank2 = rank + RELAX_MMR;
                     ranks.set(i, rank1 + "-" + rank2);
                     return i;
                 }
