@@ -22,6 +22,7 @@ public class Client {
                 try {
                     if (scanner.hasNextLine()) {
                         String line = scanner.nextLine();
+                        System.out.println(line);
                         inputQueue.offer(line);
                         Thread.sleep(1);
                     }
@@ -31,22 +32,18 @@ public class Client {
             }
         });
         input_thread.start();
-        boolean msgPrinted = false;
         do {
             buffer.clear();
             String message = "";
             if (canWrite) {
                 if (!inputQueue.isEmpty()) {
                     message = inputQueue.poll();
-                    msgPrinted = false;
                 }
-                if (!msgPrinted) {
-                    byte[] bytesToSend = message.getBytes();
-                    buffer.put(bytesToSend);
-                    buffer.flip();
-                    socketChannel.write(buffer);
-                    buffer.clear();
-                }
+                byte[] bytesToSend = message.getBytes();
+                buffer.put(bytesToSend);
+                buffer.flip();
+                socketChannel.write(buffer);
+                buffer.clear();
             }
             if (socketChannel.isConnected()) {
                 buffer.put(0, new byte[buffer.limit()]);
@@ -86,8 +83,6 @@ public class Client {
                         if (tmp.contains("Game Starting!"))
                             canWrite = true;
                     }
-
-
                     System.out.println(tmp);
                 }
             }

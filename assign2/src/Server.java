@@ -120,6 +120,8 @@ public class Server implements GameCallback {
                     if (socketChannel.isOpen()) {
                         try {
                             numRead = socketChannel.read(buffer);
+                            System.out.println("Numread: " + numRead);
+
                         } catch (IOException ioException) {
                             disconected = true;
                         }
@@ -137,6 +139,7 @@ public class Server implements GameCallback {
 
                         if (playing.get(socketChannel) != null) {
                             int index = playing.get(socketChannel);
+                            System.out.println("Username: " + socketToUsername(socketChannel) + " Message: " + message);
                             games.get(index).sendMessage(socketToUsername(socketChannel), message);
                             games.get(index).wakeUp();
                         } else if (message.startsWith("help")) {
