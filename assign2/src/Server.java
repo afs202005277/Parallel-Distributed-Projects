@@ -178,12 +178,12 @@ public class Server implements GameCallback {
                             } else {
                                 String username = parts[1];
                                 String password = parts[2];
-                                Integer nextReady = getNextReady(username);
                                 if (!auth.isLoggedIn(username)) {
                                     String tok = auth.login(username, password);
                                     if (tok.contains("Error"))
                                         res = tok;
                                     else {
+                                        Integer nextReady = getNextReady(username);
                                         res = gameHandling(socketChannel, nextReady, username, tok);
                                     }
                                     if (!res.contains("Error:"))

@@ -1,5 +1,3 @@
-gpe1:password
-gpe2:password
-gpe3:password
-gpe4:password
 a:a
+b:b
+c:c
