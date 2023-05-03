@@ -102,7 +102,7 @@ public class Client {
         socketChannel.read(buffer);
         input_thread.interrupt();
         socketChannel.close();
-        System.out.println("Write anything to disconnect: ");
+        System.out.println("Write anything to terminate: ");
     }
 
 }
