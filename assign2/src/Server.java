@@ -120,6 +120,8 @@ public class Server implements GameCallback {
                     if (socketChannel.isOpen()) {
                         try {
                             numRead = socketChannel.read(buffer);
+                            System.out.println("Numread: " + numRead);
+
                         } catch (IOException ioException) {
                             disconected = true;
                         }
@@ -137,16 +139,17 @@ public class Server implements GameCallback {
 
                         if (playing.get(socketChannel) != null) {
                             int index = playing.get(socketChannel);
+                            System.out.println("Username: " + socketToUsername(socketChannel) + " Message: " + message);
                             games.get(index).sendMessage(socketToUsername(socketChannel), message);
                             games.get(index).wakeUp();
-                        } else if (message.startsWith("help")){
+                        } else if (message.startsWith("help")) {
                             String usageInstructions = """
                                     Usage instructions:
                                     Login: login <username> <password>
                                     Register: register <username> <password>
                                     """;
                             sendMessage(socketChannel, usageInstructions);
-                        }else if (message.startsWith("register")) {
+                        } else if (message.startsWith("register")) {
                             String[] parts = message.split(" ");
                             String res;
                             if (parts.length != 3)
@@ -256,7 +259,7 @@ public class Server implements GameCallback {
                             continue;
                         }
                         String[] parts = ranks.get(i).split("-");
-                        int rank_left = Integer.parseInt(parts[0]) - RELAX_MMR;
+                        int rank_left = Math.max(Integer.parseInt(parts[0]) - RELAX_MMR, 0);
                         int rank_right = Integer.parseInt(parts[1]) + RELAX_MMR;
                         System.out.println("Relaxing queue on Server #" + i + ": " + rank_left + "-" + rank_right);
                         ranks.set(i, rank_left + "-" + rank_right);
@@ -298,8 +301,7 @@ public class Server implements GameCallback {
                     inQueue.add(username);
                 }
                 res += "You are in the Queue!\nPosition in Queue: " + (inQueue.indexOf(username) + 1);
-            }
-            else if (currentPlayers.get(nextReady) < playersPerGame - 1) {
+            } else if (currentPlayers.get(nextReady) < playersPerGame - 1) {
                 currentPlayers.set(nextReady, currentPlayers.get(nextReady) + 1);
                 String m = "Waiting for players [" + currentPlayers.get(nextReady) + " / " + playersPerGame + "]";
                 m += " Server #" + nextReady;
@@ -380,8 +382,7 @@ public class Server implements GameCallback {
                     int rank2 = rank + RELAX_MMR;
                     ranks.set(i, rank1 + "-" + rank2);
                     return i;
-                }
-                else {
+                } else {
                     String[] parts = ranks.get(i).split("-");
                     int rank = auth.getRank(username);
                     if (rank >= Integer.parseInt(parts[0]) && rank <= Integer.parseInt(parts[1]))
@@ -420,8 +421,8 @@ public class Server implements GameCallback {
         ArrayList<String> usernames = game.getUsernameFromMessageForServer();
         HashMap<String, SocketChannel> usernameToSocket = (HashMap<String, SocketChannel>) getUsernamesToSocketChannelsForGame(index);
 
-        if (!answers.isEmpty() && answers.get(0).contains(Game.getGameOverMessage())){
-            for (int i=0;i<usernames.size();i++){
+        if (!answers.isEmpty() && answers.get(0).contains(Game.getGameOverMessage())) {
+            for (int i = 0; i < usernames.size(); i++) {
                 playing.remove(usernameToSocket.get(usernames.get(i)));
                 answers.set(i, answers.get(i) + "\n" + "DISCONNECT");
             }
@@ -457,8 +458,13 @@ public class Server implements GameCallback {
                     System.out.println("ERROR");
                 }
             }
-        }
-        else {
+            if (answers.get(0).contains("points")){
+                for (int i =0;i<answers.size();i++){
+                    String answer = answers.get(i);
+                    int incrementPoints = Integer.parseInt(answer.substring(answer.indexOf("scored ") + "scored ".length(), answer.indexOf(" points")));
+                    auth.updateRank(usernames.get(i), incrementPoints);                }
+            }
+        } else {
             try {
                 sendGameMessages(usernameToSocket, usernames, answers);
             } catch (IOException e) {

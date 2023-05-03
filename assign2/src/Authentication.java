@@ -116,6 +116,11 @@ public class Authentication {
         return ranks.get(username);
     }
 
+    public synchronized void updateRank(String username, Integer increment) {
+        Integer lastVal = ranks.get(username);
+        ranks.replace(username, lastVal + increment);
+    }
+
     public synchronized String registerUser(String username, String password) throws IOException {
         // Check if username already exists
         BufferedReader reader = new BufferedReader(new FileReader(usersFileName));
