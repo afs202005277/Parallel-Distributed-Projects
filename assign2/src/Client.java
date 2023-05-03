@@ -58,18 +58,18 @@ public class Client {
                 if (message.startsWith("login")) {
                     tmp_login_command = message;
                 }
-            if (socketChannel.isConnected()) {
-                buffer.put(0, new byte[buffer.limit()]);
-                socketChannel.read(buffer);
-                String tmp = new String(buffer.array()).trim();
-                if (!tmp.isBlank()) {
-                    if (tmp.contains("DISCONNECT")) {
-                        System.out.println(tmp.substring(0, tmp.indexOf("DISCONNECT")));
-                        break;
-                    }
-                    if (!tmp.startsWith("Error") && !tmp.startsWith("Usage")) {
-                        if (tmp.startsWith("Login Token")) {
-                            login_command = tmp_login_command;
+                if (socketChannel.isConnected()) {
+                    buffer.put(0, new byte[buffer.limit()]);
+                    socketChannel.read(buffer);
+                    String tmp = new String(buffer.array()).trim();
+                    if (!tmp.isBlank()) {
+                        if (tmp.contains("DISCONNECT")) {
+                            System.out.println(tmp.substring(0, tmp.indexOf("DISCONNECT")));
+                            break;
+                        }
+                        if (!tmp.startsWith("Error") && !tmp.startsWith("Usage")) {
+                            if (tmp.startsWith("Login Token")) {
+                                login_command = tmp_login_command;
                                 token = tmp.substring(tmp.indexOf(": ") + 2, tmp.indexOf("\n"));
                                 final String tok = token;
                                 Runtime.getRuntime().addShutdownHook(new Thread(() -> {
@@ -91,10 +91,12 @@ public class Client {
                             }
 
 
-                        System.out.println(tmp);
+                            System.out.println(tmp);
+                        }
                     }
                 }
-            } while (true);
+            }
+            while (true);
             buffer.clear();
             buffer.put(("logout " + token).getBytes());
             buffer.flip();
@@ -109,5 +111,4 @@ public class Client {
             input_thread.join();
         } while (play_again.get());
     }
-
 }
