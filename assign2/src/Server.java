@@ -209,8 +209,9 @@ public class Server implements GameCallback {
                                     answer = "Logout successful!";
                                     int nextReady = getNextReady(username);
                                     if (currentPlayers.get(nextReady) < playersPerGame) {
-                                        currentPlayers.set(nextReady, currentPlayers.get(nextReady) - 1);
+                                        currentPlayers.set(nextReady, Math.max(currentPlayers.get(nextReady) - 1, 0));
                                         playing.remove(socketChannel);
+                                        waitingForPlayers.remove(socketChannel);
                                         String m = "Waiting for players [" + currentPlayers.get(nextReady) + " / " + playersPerGame + "]";
                                         m += " Server #" + nextReady;
                                         sendMessageToPlayers(playing, m, nextReady);
@@ -219,6 +220,7 @@ public class Server implements GameCallback {
                                             int idx = playing.get(socketChannel);
                                             leftInGame.put(username, idx);
                                             playing.remove(socketChannel);
+                                            waitingForPlayers.remove(socketChannel);
                                             sendMessageToPlayers(playing, username + " has disconected!", idx);
                                         }
                                     }
@@ -298,6 +300,7 @@ public class Server implements GameCallback {
                 res += "You are in the Queue!\nPosition in Queue: " + (inQueue.indexOf(username) + 1);
             } else if (currentPlayers.get(nextReady) < playersPerGame - 1) {
                 currentPlayers.set(nextReady, currentPlayers.get(nextReady) + 1);
+
                 String m = "Waiting for players [" + currentPlayers.get(nextReady) + " / " + playersPerGame + "]";
                 m += " Server #" + nextReady;
                 res += m;
