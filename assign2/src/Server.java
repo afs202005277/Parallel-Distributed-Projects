@@ -12,6 +12,7 @@ import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class Server implements GameCallback {
     public static final int BUFFER_SIZE = 4096;
@@ -26,7 +27,7 @@ public class Server implements GameCallback {
     private final ExecutorService threadPool;
 
     private final Game gameModel;
-    private final ArrayList<GameRunner> games;
+    private final ConcurrentList<GameRunner> games = new ConcurrentList<>();
 
     private final int playersPerGame;
     private boolean startGame = false;
@@ -34,22 +35,22 @@ public class Server implements GameCallback {
     private int startGameIdx = -1;
     private final Authentication auth;
     // channel -> tokens
-    private final HashMap<SocketChannel, String> clientTokens;
+    private final ConcurrentHashMap<SocketChannel, String> clientTokens = new ConcurrentHashMap<>();
 
     // channel -> index of the game where player is playing
-    private final HashMap<SocketChannel, Integer> playing;
+    private final ConcurrentHashMap<SocketChannel, Integer> playing = new ConcurrentHashMap<>();
 
     // channel -> index of the game where player is waiting
-    private final List<String> inQueue;
+    private final ConcurrentList<String> inQueue = new ConcurrentList<>();
 
     // channel -> index of the game where player is waiting for other players
     private final HashMap<SocketChannel, Integer> waitingForPlayers;
 
     // username -> index of the game where player was playing but crashed
     private final HashMap<String, Integer> leftInGame;
-    private final List<Integer> currentPlayers;
+    private final ConcurrentList<Integer> currentPlayers = new ConcurrentList<>();
 
-    private final List<String> ranks;
+    private final ConcurrentList<String> ranks = new ConcurrentList<>();
 
     public Server(int maxGames, Game game) throws IOException {
         serverSocketChannel = ServerSocketChannel.open();
@@ -58,7 +59,6 @@ public class Server implements GameCallback {
 
         threadPool = Executors.newFixedThreadPool(maxGames);
         this.gameModel = game.clone();
-        games = new ArrayList<>();
         for (int i = 0; i < maxGames; i++) {
             games.add(new GameRunner(gameModel.clone(), this, i));
         }
@@ -67,15 +67,10 @@ public class Server implements GameCallback {
         serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT);
 
         auth = new Authentication("src/tokens.txt", "src/users.txt", "src/ranks.txt");
-        clientTokens = new HashMap<>();
 
         playersPerGame = Game.getNumPlayers();
-        currentPlayers = new ArrayList<>();
-        playing = new HashMap<>();
-        inQueue = new ArrayList<>();
         waitingForPlayers = new HashMap<>();
         leftInGame = new HashMap<>();
-        ranks = new ArrayList<>();
 
         for (int i = 0; i < maxGames; i++) {
             currentPlayers.add(0);

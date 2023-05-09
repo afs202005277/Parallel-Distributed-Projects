@@ -1,17 +1,17 @@
 import java.io.*;
-import java.util.Hashtable;
+import java.util.Map;
 import java.util.UUID;
 
 public class Authentication {
     // username -> token
-    private final Hashtable<String, String> tokens;
-    private final Hashtable<String, Integer> ranks;
+    private final ConcurrentHashMap<String, String> tokens = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Integer> ranks = new ConcurrentHashMap<>();
     private final String tokensFileName;
     private final String usersFileName;
 
     private final String rankFileName;
 
-    public Hashtable<String, String> getTokens() {
+    public Map<String, String> getTokens() {
         return tokens;
     }
 
@@ -19,8 +19,6 @@ public class Authentication {
         this.tokensFileName = filename;
         this.usersFileName = usersFileName;
         this.rankFileName = rankFileName;
-        tokens = new Hashtable<>();
-        ranks = new Hashtable<>();
         loadTokensFromFile();
         loadRanksFromFile();
     }

@@ -29,14 +29,6 @@ public class Game implements Cloneable {
 
     private int iterations;
 
-    public int getIterations() {
-        return iterations;
-    }
-
-    public void setIterations(int iterations) {
-        this.iterations = iterations;
-    }
-
     public static String getGameOverMessage() {
         return game_over_message;
     }

@@ -66,7 +66,6 @@ public class GameRunner extends Thread {
                 waiting = true;
             }
         } while (!game.isEnded());
-        game.setIterations(0);
         game.processEndGame();
         hasStarted = false;
         gameCallback.onUpdate(game, index);

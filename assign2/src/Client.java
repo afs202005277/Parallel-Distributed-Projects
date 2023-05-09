@@ -39,7 +39,6 @@ public class Client {
                 }
             });
             input_thread.start();
-            boolean msgPrinted = false;
             do {
                 buffer.clear();
                 String message = "";
@@ -50,8 +49,7 @@ public class Client {
                     message = login_command;
                     play_again.set(false);
                 }
-                byte[] bytesToSend = message.getBytes();
-                buffer.put(bytesToSend);
+                buffer.put(message.getBytes());
                 buffer.flip();
                 socketChannel.write(buffer);
                 buffer.clear();
@@ -67,6 +65,7 @@ public class Client {
                             System.out.println(tmp.substring(0, tmp.indexOf("DISCONNECT")));
                             break;
                         }
+                        System.out.println(tmp);
                         if (!tmp.startsWith("Error") && !tmp.startsWith("Usage")) {
                             if (tmp.startsWith("Login Token")) {
                                 login_command = tmp_login_command;
@@ -89,9 +88,6 @@ public class Client {
                                     }
                                 }));
                             }
-
-
-                            System.out.println(tmp);
                         }
                     }
                 }
