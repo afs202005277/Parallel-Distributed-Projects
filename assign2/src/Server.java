@@ -18,20 +18,16 @@ public class Server implements GameCallback {
     public static final int BUFFER_SIZE = 4096;
     private final static int RELAX_MMR = 50;
     private final static int RELAX_AFTER_TIME = 10000; // time before relaxing the queue in ms
-
     public final static String welcomeMessage = "Welcome to our server!\nPlease login or register a new account.\nIf you need any help, you can just send the \"help\" message.";
     private final static CharsetEncoder encoder = (StandardCharsets.UTF_8).newEncoder();
     private static ByteBuffer buffer = ByteBuffer.allocate(BUFFER_SIZE);
     private final ServerSocketChannel serverSocketChannel;
     private final Selector selector;
     private final ExecutorService threadPool;
-
     private final Game gameModel;
     private final ConcurrentList<GameRunner> games = new ConcurrentList<>();
-
     private final int playersPerGame;
     private boolean startGame = false;
-
     private int startGameIdx = -1;
     private final Authentication auth;
     // channel -> tokens
@@ -224,7 +220,6 @@ public class Server implements GameCallback {
                                             sendMessageToPlayers(playing, username + " has disconected!", idx);
                                         }
                                     }
-
                                     auth.invalidateToken(token);
                                     clientTokens.remove(socketChannel);
                                     key.cancel();
@@ -237,7 +232,6 @@ public class Server implements GameCallback {
                             sendMessage(socketChannel, answer);
                             if (canceled)
                                 socketChannel.close();
-
                         } else {
                             // Echo back the received message
                             sendMessage(socketChannel, message);
@@ -246,27 +240,24 @@ public class Server implements GameCallback {
                 }
             }
 
-            if ((System.nanoTime() - startTime) / 1000000 > RELAX_AFTER_TIME) {
-                // change ranks
-
-                for (int i = 0; i < ranks.size(); i++) {
-                    if (!Objects.equals(ranks.get(i), "")) {
-                        if (!games.get(i).isReady()) {
-                            ranks.set(i, "");
-                            continue;
+            if (inQueue.size() >= playersPerGame) {
+                if ((System.nanoTime() - startTime) / 1000000 > RELAX_AFTER_TIME) {
+                    for (int i = 0; i < ranks.size(); i++) {
+                        if (!Objects.equals(ranks.get(i), "")) {
+                            if (!games.get(i).isReady()) {
+                                ranks.set(i, "");
+                                continue;
+                            }
+                            String[] parts = ranks.get(i).split("-");
+                            int rank_left = Math.max(Integer.parseInt(parts[0]) - RELAX_MMR, 0);
+                            int rank_right = Integer.parseInt(parts[1]) + RELAX_MMR;
+                            System.out.println("Relaxing queue on Server #" + i + ": " + rank_left + "-" + rank_right);
+                            ranks.set(i, rank_left + "-" + rank_right);
                         }
-                        String[] parts = ranks.get(i).split("-");
-                        int rank_left = Math.max(Integer.parseInt(parts[0]) - RELAX_MMR, 0);
-                        int rank_right = Integer.parseInt(parts[1]) + RELAX_MMR;
-                        System.out.println("Relaxing queue on Server #" + i + ": " + rank_left + "-" + rank_right);
-                        ranks.set(i, rank_left + "-" + rank_right);
                     }
+                    startTime = System.nanoTime();
                 }
-                startTime = System.nanoTime();
-
-
             }
-
         }
     }
 
@@ -456,11 +447,12 @@ public class Server implements GameCallback {
                     System.out.println("ERROR");
                 }
             }
-            if (answers.get(0).contains("points")){
-                for (int i =0;i<answers.size();i++){
+            if (answers.get(0).contains("points")) {
+                for (int i = 0; i < answers.size(); i++) {
                     String answer = answers.get(i);
                     int incrementPoints = Integer.parseInt(answer.substring(answer.indexOf("scored ") + "scored ".length(), answer.indexOf(" points")));
-                    auth.updateRank(usernames.get(i), incrementPoints);                }
+                    auth.updateRank(usernames.get(i), incrementPoints);
+                }
             }
         } else {
             try {

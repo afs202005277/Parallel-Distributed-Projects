@@ -5,11 +5,10 @@ import java.nio.channels.SocketChannel;
 import java.util.Scanner;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 public class Client {
     public static void main(String[] args) throws IOException, InterruptedException {
-        AtomicBoolean play_again = new AtomicBoolean(false);
+        final boolean[] play_again = {false};
         String login_command = null;
         String tmp_login_command = null;
         do {
@@ -31,7 +30,7 @@ public class Client {
                         }
                     } catch (InterruptedException ie) {
                         if (line.equals("again")) {
-                            play_again.set(true);
+                            play_again[0] = true;
                         }
                         inputQueue.poll();
                         break;
@@ -45,9 +44,9 @@ public class Client {
                 if (!inputQueue.isEmpty()) {
                     message = inputQueue.poll();
                 }
-                if (play_again.get()) {
+                if (play_again[0]) {
                     message = login_command;
-                    play_again.set(false);
+                    play_again[0] = false;
                 }
                 buffer.put(message.getBytes());
                 buffer.flip();
@@ -55,6 +54,8 @@ public class Client {
                 buffer.clear();
                 if (message.startsWith("login")) {
                     tmp_login_command = message;
+                } else if (message.startsWith("register")){
+                    tmp_login_command = message.replace("register", "login");
                 }
                 if (socketChannel.isConnected()) {
                     buffer.put(0, new byte[buffer.limit()]);
@@ -105,6 +106,6 @@ public class Client {
             input_thread.interrupt();
             System.out.println("Write \"again\" to play again and anything else to disconnect: ");
             input_thread.join();
-        } while (play_again.get());
+        } while (play_again[0]);
     }
 }
