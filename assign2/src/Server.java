@@ -80,7 +80,7 @@ public class Server implements GameCallback {
             try {
                 auth.clearTokens();
             } catch (IOException e) {
-                System.out.println("ERROR");
+                System.out.println("Error: unable to clear authentication tokens!");
             }
         }));
     }
@@ -111,8 +111,6 @@ public class Server implements GameCallback {
                     if (socketChannel.isOpen()) {
                         try {
                             numRead = socketChannel.read(buffer);
-                            System.out.println("Numread: " + numRead);
-
                         } catch (IOException ioException) {
                             disconected = true;
                         }
@@ -130,7 +128,6 @@ public class Server implements GameCallback {
 
                         if (playing.get(socketChannel) != null) {
                             int index = playing.get(socketChannel);
-                            System.out.println("Username: " + socketToUsername(socketChannel) + " Message: " + message);
                             games.get(index).sendMessage(socketToUsername(socketChannel), message);
                             games.get(index).wakeUp();
                         } else if (message.startsWith("help")) {
@@ -235,14 +232,12 @@ public class Server implements GameCallback {
                             if (canceled)
                                 socketChannel.close();
                         } else {
-                            // Echo back the received message
                             sendMessage(socketChannel, message);
                         }
                     }
                 }
             }
 
-            if (inQueue.size() >= playersPerGame) {
                 if ((System.nanoTime() - startTime) / 1000000 > RELAX_AFTER_TIME) {
                     for (int i = 0; i < ranks.size(); i++) {
                         if (!Objects.equals(ranks.get(i), "")) {
@@ -258,7 +253,6 @@ public class Server implements GameCallback {
                         }
                     }
                     startTime = System.nanoTime();
-                }
             }
         }
     }
@@ -420,7 +414,7 @@ public class Server implements GameCallback {
             try {
                 sendGameMessages(usernameToSocket, usernames, answers);
             } catch (IOException e) {
-                System.out.println("Unable to send game messages!");
+                System.out.println("Error: unable to send game messages!");
             }
 
             currentPlayers.set(index, 0);
@@ -445,8 +439,8 @@ public class Server implements GameCallback {
                         startGame(startGameIdx);
                         startGame = false;
                     }
-                } catch (Exception e) {
-                    System.out.println("ERROR");
+                } catch (IOException e) {
+                    System.out.println("Error: Unable to send messages to clients!");
                 }
             }
             if (answers.get(0).contains("points")) {
@@ -460,7 +454,7 @@ public class Server implements GameCallback {
             try {
                 sendGameMessages(usernameToSocket, usernames, answers);
             } catch (IOException e) {
-                System.out.println("Unable to send game messages!");
+                System.out.println("Error: unable to send game messages!");
             }
         }
     }

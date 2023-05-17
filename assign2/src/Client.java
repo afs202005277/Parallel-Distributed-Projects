@@ -3,8 +3,6 @@ import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 import java.util.Scanner;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
 
 public class Client {
     public static void main(String[] args) throws IOException, InterruptedException {
@@ -18,14 +16,14 @@ public class Client {
             Scanner scanner = new Scanner(System.in);
             ByteBuffer buffer = ByteBuffer.allocate(4096);
             String token = "";
-            BlockingQueue<String> inputQueue = new LinkedBlockingQueue<>();
+            ConcurrentList<String> inputQueue = new ConcurrentList<>();
             Thread input_thread = new Thread(() -> {
                 while (true) {
                     String line = null;
                     try {
                         if (scanner.hasNextLine()) {
                             line = scanner.nextLine();
-                            inputQueue.offer(line);
+                            inputQueue.add(line);
                             Thread.sleep(1);
                         }
                     } catch (InterruptedException ie) {
@@ -106,6 +104,7 @@ public class Client {
             input_thread.interrupt();
             System.out.println("Write \"again\" to play again and anything else to disconnect: ");
             input_thread.join();
+            System.in.read(new byte[System.in.available()]);
         } while (play_again[0]);
     }
 }

@@ -1,4 +1,3 @@
-import java.nio.channels.SocketChannel;
 import java.util.List;
 
 public class GameRunner extends Thread {
@@ -28,7 +27,7 @@ public class GameRunner extends Thread {
     }
 
     public void povoate_users(List<String> usernames) {
-        this.game.povoate_users(usernames);
+        this.game.populateUsers(usernames);
     }
 
     public boolean isReady() {
@@ -55,6 +54,8 @@ public class GameRunner extends Thread {
         do {
             game.nextIteration();
             gameCallback.onUpdate(game, index);
+            if (game.isEnded())
+                break;
             synchronized (lock) {
                 while (waiting) {
                     try {
@@ -65,7 +66,7 @@ public class GameRunner extends Thread {
                 }
                 waiting = true;
             }
-        } while (!game.isEnded());
+        } while (true);
         game.processEndGame();
         hasStarted = false;
         gameCallback.onUpdate(game, index);

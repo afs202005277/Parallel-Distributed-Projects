@@ -1,7 +1,3 @@
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.nio.channels.SocketChannel;
 import java.util.*;
 import java.util.Random;
 
@@ -10,7 +6,7 @@ public class Game implements Cloneable {
     private static final int numPlayers = 2; // must be even
     private static final int interactions_before_end_game = 4;
 
-    public static final String welcomeMessage = "Welcome to our game!\nTo play this game, you only need to write some messages in your keyboard and check what the other players have done in the meantime!\nThe game ends after " + (interactions_before_end_game + 1) + " interactions with players.\n";
+    public static final String welcomeMessage = "Welcome to our game!\nTo play this game, you only need to write some messages in your keyboard and check what the other players have done in the meantime!\nThe game ends after " + interactions_before_end_game + " interactions with players.\n";
 
     private static final String game_over_message = "Game over: ";
 
@@ -52,7 +48,7 @@ public class Game implements Cloneable {
         this.messages = new ArrayList<>();
     }
 
-    public void povoate_users(List<String> usernames) {
+    public void populateUsers(List<String> usernames) {
         this.usernames = (ArrayList<String>) usernames;
         for (int i = 0; i < usernames.size(); i++)
             this.usernames_points.add(0);
@@ -63,9 +59,9 @@ public class Game implements Cloneable {
     }
 
     public void nextIteration() {
-        while (!this.messages.isEmpty()) {
+        while (!this.messages.isEmpty() && !isEnded()) {
             iterations++;
-            game_logic(username_message.get(0));
+            gameLogic(username_message.get(0));
             messages.remove(0);
             username_message.remove(0);
         }
@@ -87,15 +83,6 @@ public class Game implements Cloneable {
         }
     }
 
-
-    public ArrayList<String> getUsernames() {
-        return this.usernames;
-    }
-
-    public ArrayList<Integer> getUserPoints() {
-        return this.usernames_points;
-    }
-
     public ArrayList<String> getMessageForServer() {
         ArrayList<String> res = new ArrayList<>(message_for_server);
         message_for_server.clear();
@@ -108,43 +95,28 @@ public class Game implements Cloneable {
         return res;
     }
 
-    private void add_score(String username, int addition) {
+    private void addScore(String username, int addition) {
         int i = usernames.indexOf(username);
         usernames_points.set(i, usernames_points.get(i) + addition);
     }
 
-    private void game_logic(String username) {
-        Random rand = new Random();
-        String message_action_user = "Walked";
-        String other_players_message_action = "walked";
-        if (rand.nextFloat() < 0.1) {
-            message_action_user = "Planted the bomb";
-            other_players_message_action = "planted the bomb";
-            this.add_score(username, 3);
-            if (usernames.indexOf(username) < numPlayers / 2)
-                game_score += 3;
-            else
-                game_score -= 3;
-        } else if (rand.nextFloat() < 0.3) {
-            message_action_user = "Killed a player";
-            other_players_message_action = "killed a player";
-            this.add_score(username, 2);
-            if (usernames.indexOf(username) < numPlayers / 2)
-                game_score += 2;
-            else
-                game_score -= 2;
-        } else if (rand.nextFloat() < 0.5) {
-            message_action_user = "Assisted on a kill";
-            other_players_message_action = "assisted on a kill";
-            this.add_score(username, 1);
-            if (usernames.indexOf(username) < numPlayers / 2)
-                game_score += 1;
-            else
-                game_score -= 1;
-        } else if (rand.nextFloat() < 0.25) {
-            message_action_user = "You died";
-            other_players_message_action = "died";
-        }
+    private void gameLogic(String username) {
+        double random = (new Random()).nextFloat();
+        String message_action_user = "";
+        String other_players_message_action = "";
+
+        for (int i = 0; i < gameLogicProbs.size(); i++)
+            if (random < gameLogicProbs.get(i)) {
+                int val = gameLogicValues.get(i).getVal1();
+                message_action_user = gameLogicValues.get(i).getVal2();
+                other_players_message_action = gameLogicValues.get(i).getVal3();
+                this.addScore(username, val);
+                if (usernames.indexOf(username) < numPlayers / 2)
+                    game_score += val;
+                else
+                    game_score -= val;
+                break;
+            }
 
         for (String user : usernames) {
             if (Objects.equals(user, username)) {
