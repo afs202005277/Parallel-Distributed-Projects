@@ -10,6 +10,10 @@ public class Game implements Cloneable {
 
     private static final String game_over_message = "Game over: ";
 
+    private final List<Double> gameLogicProbs;
+
+    private final List<Triplet<Integer, String, String>> gameLogicValues;
+
     private String fileName;
 
     private ArrayList<String> message_for_server;
@@ -46,6 +50,33 @@ public class Game implements Cloneable {
         usernames_points = new ArrayList<>();
         username_message = new ArrayList<>();
         this.messages = new ArrayList<>();
+        gameLogicProbs = new ArrayList<>();
+        gameLogicValues = new ArrayList<>();
+
+        Triplet<Integer, String, String> triplet = new Triplet<>(3, "Planted the bomb", "planted the bomb");
+
+        gameLogicProbs.add(0.1);
+        gameLogicValues.add(triplet);
+
+        triplet = new Triplet<>(2, "Killed a player", "killed a player");
+
+        gameLogicProbs.add(0.3);
+        gameLogicValues.add(triplet);
+
+        triplet = new Triplet<>(1, "Assisted on a kill", "assisted on a kill");
+
+        gameLogicProbs.add(0.5);
+        gameLogicValues.add(triplet);
+
+        triplet = new Triplet<>(-1, "You died", "died");
+        gameLogicProbs.add(0.75);
+        gameLogicValues.add(triplet);
+
+        triplet = new Triplet<>(0, "Walked", "walked");
+
+        gameLogicProbs.add(1.0);
+        gameLogicValues.add(triplet);
+
     }
 
     public void populateUsers(List<String> usernames) {
