@@ -90,6 +90,7 @@ public class Server implements GameCallback {
         while (true) {
             selector.selectNow();
             Iterator<SelectionKey> iterator = selector.selectedKeys().iterator();
+
             while (iterator.hasNext()) {
                 SelectionKey key = iterator.next();
                 iterator.remove();
@@ -238,21 +239,42 @@ public class Server implements GameCallback {
                 }
             }
 
-                if ((System.nanoTime() - startTime) / 1000000 > RELAX_AFTER_TIME) {
-                    for (int i = 0; i < ranks.size(); i++) {
-                        if (!Objects.equals(ranks.get(i), "")) {
-                            if (!games.get(i).isReady()) {
-                                ranks.set(i, "");
-                                continue;
+            if ((System.nanoTime() - startTime) / 1000000 > RELAX_AFTER_TIME) {
+                for (int i = 0; i < ranks.size(); i++) {
+                    if (!Objects.equals(ranks.get(i), "")) {
+                        if (!games.get(i).isReady()) {
+                            ranks.set(i, "");
+                            continue;
+                        }
+                        String[] parts = ranks.get(i).split("-");
+                        int rank_left = Math.max(Integer.parseInt(parts[0]) - RELAX_MMR, 0);
+                        int rank_right = Integer.parseInt(parts[1]) + RELAX_MMR;
+                        System.out.println("Relaxing queue on Server #" + i + ": " + rank_left + "-" + rank_right);
+                        ranks.set(i, rank_left + "-" + rank_right);
+
+
+                        for (int j = 0; j < inQueue.size(); j++) {
+                            String username = inQueue.get(j);
+                            SocketChannel socketChannel = usernameToSocket(username);
+                            if (socketChannel != null) {
+                                Integer nextReady = getNextReady(username);
+                                if (nextReady == -1) {
+                                    sendMessage(socketChannel, "Still in queue! Relaxing the rank match.");
+                                } else {
+                                    String tok = usernameToToken(username);
+                                    String answer = gameHandling(socketChannel, nextReady, username, tok);
+                                    sendMessage(socketChannel, answer.split("\n")[2]);
+                                }
+
+                                if (startGame) {
+                                    startGame(nextReady);
+                                    startGame = false;
+                                }
                             }
-                            String[] parts = ranks.get(i).split("-");
-                            int rank_left = Math.max(Integer.parseInt(parts[0]) - RELAX_MMR, 0);
-                            int rank_right = Integer.parseInt(parts[1]) + RELAX_MMR;
-                            System.out.println("Relaxing queue on Server #" + i + ": " + rank_left + "-" + rank_right);
-                            ranks.set(i, rank_left + "-" + rank_right);
                         }
                     }
-                    startTime = System.nanoTime();
+                }
+                startTime = System.nanoTime();
             }
         }
     }
@@ -269,6 +291,28 @@ public class Server implements GameCallback {
             }
         }
         return "";
+    }
+
+    private String usernameToToken(String username) {
+        String token = "";
+        for (Map.Entry<String, String> entry : auth.getTokens().entrySet()) {
+            if (Objects.equals(entry.getKey(), username)) {
+                token = entry.getValue();
+                break;
+            }
+        }
+
+        return token;
+    }
+
+    private SocketChannel usernameToSocket(String username) {
+        String token = usernameToToken(username);
+        for (Map.Entry<SocketChannel, String> entry : clientTokens.entrySet()) {
+            if (Objects.equals(entry.getValue(), token)) {
+                return entry.getKey();
+            }
+        }
+        return null;
     }
 
     private String gameHandling(SocketChannel socketChannel, Integer nextReady, String username, String tok) throws IOException {
@@ -293,6 +337,7 @@ public class Server implements GameCallback {
                 res += m;
                 sendMessageToPlayers(playing, m, nextReady);
                 waitingForPlayers.put(socketChannel, nextReady);
+                inQueue.remove(username);
             } else if (currentPlayers.get(nextReady) < playersPerGame) {
                 res += "Connected to Server #" + nextReady + "\n";
                 currentPlayers.set(nextReady, currentPlayers.get(nextReady) + 1);
@@ -306,7 +351,7 @@ public class Server implements GameCallback {
                         iterator.remove();
                     }
                 }
-
+                inQueue.remove(username);
                 playing.put(socketChannel, nextReady);
                 startGame = true;
                 startGameIdx = nextReady;
