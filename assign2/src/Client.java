@@ -31,7 +31,8 @@ public class Client {
                         if (line.equals("again")) {
                             play_again[0] = true;
                         }
-                        inputQueue.poll();
+                        if (!inputQueue.isEmpty())
+                            inputQueue.remove(0);
                         break;
                     }
                 }
@@ -41,7 +42,8 @@ public class Client {
                 buffer.clear();
                 String message = "";
                 if (!inputQueue.isEmpty()) {
-                    message = inputQueue.poll();
+                    message = inputQueue.get(0);
+                    inputQueue.remove(0);
                 }
                 if (play_again[0]) {
                     message = login_command;
