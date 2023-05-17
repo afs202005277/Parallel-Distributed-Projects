@@ -7,7 +7,7 @@ import java.util.Random;
 
 public class Game implements Cloneable {
 
-    private static final int numPlayers = 2; // must be even
+    private static final int numPlayers = 4; // must be even
     private static final int interactions_before_end_game = 4;
 
     public static final String welcomeMessage = "Welcome to our game!\nTo play this game, you only need to write some messages in your keyboard and check what the other players have done in the meantime!\nThe game ends after " + (interactions_before_end_game + 1) + " interactions with players.\n";
