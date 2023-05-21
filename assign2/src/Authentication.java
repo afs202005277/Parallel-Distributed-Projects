@@ -33,6 +33,13 @@ public class Authentication {
         loadRanksFromFile();
     }
 
+    /**
+     Creates a file if it doesn't already exist.
+     If the specified file does not exist, it creates the necessary parent directories and then creates the file.
+     If the creation of the parent directories or the file itself fails, it throws an IOException.
+     @param fileName the name of the file to be created if it doesn't exist
+     @throws IOException if an I/O error occurs during the creation of the file or directories
+     */
     private void createFileIfNotExists(String fileName) throws IOException {
         File file = new File(fileName);
         File parentDirectory = file.getParentFile();
