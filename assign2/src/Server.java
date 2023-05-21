@@ -118,6 +118,7 @@ public class Server implements GameCallback {
                         if (nextReady != -1) {
                             if (gamesAndRanks.get(nextReady).getVal3() < playersPerGame) {
                                 gamesAndRanks.get(nextReady).setVal3(Math.max(gamesAndRanks.get(nextReady).getVal3() - 1, 0));
+                                if (gamesAndRanks.get(nextReady).getVal3() == 0) gamesAndRanks.get(nextReady).setVal2("");
                                 playing.remove(socketChannel);
                                 waitingForPlayers.remove(socketChannel);
                                 String m = "Waiting for players [" + gamesAndRanks.get(nextReady).getVal3() + " / " + playersPerGame + "]";
@@ -225,6 +226,7 @@ public class Server implements GameCallback {
                                     if (nextReady != -1) {
                                         if (gamesAndRanks.get(nextReady).getVal3() < playersPerGame) {
                                             gamesAndRanks.get(nextReady).setVal3(Math.max(gamesAndRanks.get(nextReady).getVal3() - 1, 0));
+                                            if (gamesAndRanks.get(nextReady).getVal3() == 0) gamesAndRanks.get(nextReady).setVal2("");
                                             playing.remove(socketChannel);
                                             waitingForPlayers.remove(socketChannel);
                                             String m = "Waiting for players [" + gamesAndRanks.get(nextReady).getVal3() + " / " + playersPerGame + "]";
