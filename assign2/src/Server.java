@@ -43,6 +43,12 @@ public class Server implements GameCallback {
     // username -> index of the game where player was playing but crashed
     private final HashMap<String, Integer> leftInGame = new HashMap<>();
 
+    /**
+     Constructs a Server object with the specified maximum number of games and game model.
+     @param maxGames The maximum number of games that the server can handle simultaneously.
+     @param game The game model to be used for each game instance.
+     @throws IOException If an I/O error occurs when opening the server socket channel.
+     */
     public Server(int maxGames, Game game) throws IOException {
         serverSocketChannel = ServerSocketChannel.open();
         serverSocketChannel.socket().bind(new InetSocketAddress(8080));
@@ -54,7 +60,7 @@ public class Server implements GameCallback {
         }
         selector = Selector.open();
         serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT);
-        auth = new Authentication("src/users.txt", "src/ranks.txt");
+        auth = new Authentication("db/users.txt", "db/ranks.txt");
         playersPerGame = Game.getNumPlayers();
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             try {

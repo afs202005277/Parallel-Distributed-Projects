@@ -35,6 +35,15 @@ public class Authentication {
 
     private void createFileIfNotExists(String fileName) throws IOException {
         File file = new File(fileName);
+        File parentDirectory = file.getParentFile();
+
+        if (!parentDirectory.exists()) {
+            boolean created = parentDirectory.mkdirs();
+            if (!created) {
+                throw new IOException("Failed to create directory: " + parentDirectory);
+            }
+        }
+
         if (!file.exists()) {
             boolean created = file.createNewFile();
             if (!created) {
