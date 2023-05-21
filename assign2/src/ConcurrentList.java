@@ -1,7 +1,7 @@
 import java.util.*;
 import java.util.concurrent.locks.ReentrantLock;
 
-public class ConcurrentList<E> implements List<E> {
+public class ConcurrentList<E> implements List<E>, Comparator<E> {
     private final List<E> list = new ArrayList<>();
     private final ReentrantLock lock = new ReentrantLock();
 
@@ -233,5 +233,10 @@ public class ConcurrentList<E> implements List<E> {
         } finally {
             lock.unlock();
         }
+    }
+
+    @Override
+    public int compare(E o1, E o2) {
+        return 0;
     }
 }

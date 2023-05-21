@@ -23,7 +23,7 @@ public class Server implements GameCallback {
     private final Selector selector;
     private final ExecutorService threadPool;
     private final Game gameModel;
-    private final ConcurrentList<GameRunner> games = new ConcurrentList<>();
+    private final ConcurrentList<Triplet<GameRunner, String, Integer>> gamesAndRanks = new ConcurrentList<>();
     private final int playersPerGame;
     private boolean startGame = false;
     private int startGameIdx = -1;
@@ -42,9 +42,6 @@ public class Server implements GameCallback {
 
     // username -> index of the game where player was playing but crashed
     private final HashMap<String, Integer> leftInGame = new HashMap<>();
-    private final ConcurrentList<Integer> currentPlayers = new ConcurrentList<>();
-
-    private final ConcurrentList<String> ranks = new ConcurrentList<>();
 
     public Server(int maxGames, Game game) throws IOException {
         serverSocketChannel = ServerSocketChannel.open();
@@ -53,18 +50,12 @@ public class Server implements GameCallback {
         threadPool = Executors.newFixedThreadPool(maxGames);
         this.gameModel = game.clone();
         for (int i = 0; i < maxGames; i++) {
-            games.add(new GameRunner(gameModel.clone(), this, i));
+            gamesAndRanks.add(new Triplet<>(new GameRunner(gameModel.clone(), this, i), "", 0));
         }
         selector = Selector.open();
         serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT);
         auth = new Authentication("src/tokens.txt", "src/users.txt", "src/ranks.txt");
         playersPerGame = Game.getNumPlayers();
-        for (int i = 0; i < maxGames; i++) {
-            currentPlayers.add(0);
-        }
-        for (int i = 0; i < maxGames; i++) {
-            ranks.add("");
-        }
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             try {
                 auth.clearTokens();
@@ -124,10 +115,10 @@ public class Server implements GameCallback {
                         buffer.clear();
                         System.out.println("Message received from " + socketChannel.getRemoteAddress() + ": " + message);
 
-                        if (playing.get(socketChannel) != null) {
+                        if (playing.get(socketChannel) != null && !message.startsWith("logout")) {
                             int index = playing.get(socketChannel);
-                            games.get(index).sendMessage(socketToUsername(socketChannel), message);
-                            games.get(index).wakeUp();
+                            gamesAndRanks.get(index).getVal1().sendMessage(socketToUsername(socketChannel), message);
+                            gamesAndRanks.get(index).getVal1().wakeUp();
                         } else if (message.startsWith("help")) {
                             String usageInstructions = """
                                     Usage instructions:
@@ -197,13 +188,17 @@ public class Server implements GameCallback {
                                 if (clientTokens.containsValue(token)) {
                                     String username = auth.getUserName(token);
                                     answer = "Logout successful!";
-                                    int nextReady = getNextReady(username);
+                                    int nextReady = -1;
+                                    if (playing.containsKey(socketChannel)) nextReady = playing.get(socketChannel);
+                                    else if (waitingForPlayers.containsKey(socketChannel)) nextReady = waitingForPlayers.get(socketChannel);
+
+
                                     if (nextReady != -1) {
-                                        if (currentPlayers.get(nextReady) < playersPerGame) {
-                                            currentPlayers.set(nextReady, Math.max(currentPlayers.get(nextReady) - 1, 0));
+                                        if (gamesAndRanks.get(nextReady).getVal3() < playersPerGame) {
+                                            gamesAndRanks.get(nextReady).setVal3(Math.max(gamesAndRanks.get(nextReady).getVal3() - 1, 0));
                                             playing.remove(socketChannel);
                                             waitingForPlayers.remove(socketChannel);
-                                            String m = "Waiting for players [" + currentPlayers.get(nextReady) + " / " + playersPerGame + "]";
+                                            String m = "Waiting for players [" + gamesAndRanks.get(nextReady).getVal3() + " / " + playersPerGame + "]";
                                             m += " GameServer #" + nextReady;
                                             sendMessageToPlayers(playing, m, nextReady);
                                         } else {
@@ -236,17 +231,17 @@ public class Server implements GameCallback {
             }
 
             if ((System.nanoTime() - startTime) / 1000000 > RELAX_AFTER_TIME) {
-                for (int i = 0; i < ranks.size(); i++) {
-                    if (!Objects.equals(ranks.get(i), "")) {
-                        if (!games.get(i).isReady()) {
-                            ranks.set(i, "");
+                for (int i = 0; i < gamesAndRanks.size(); i++) {
+                    if (!Objects.equals(gamesAndRanks.get(i).getVal2(), "")) {
+                        if (!gamesAndRanks.get(i).getVal1().isReady()) {
+                            gamesAndRanks.get(i).setVal2("");
                             continue;
                         }
-                        String[] parts = ranks.get(i).split("-");
+                        String[] parts = gamesAndRanks.get(i).getVal2().split("-");
                         int rank_left = Math.max(Integer.parseInt(parts[0]) - RELAX_MMR, 0);
                         int rank_right = Integer.parseInt(parts[1]) + RELAX_MMR;
                         System.out.println("Relaxing queue on Server #" + i + ": " + rank_left + "-" + rank_right);
-                        ranks.set(i, rank_left + "-" + rank_right);
+                        gamesAndRanks.get(i).setVal2(rank_left + "-" + rank_right);
 
 
                         for (String username : inQueue) {
@@ -357,18 +352,18 @@ public class Server implements GameCallback {
                     inQueue.add(username);
                 }
                 res += "You are in the Queue!\nPosition in Queue: " + (inQueue.indexOf(username) + 1);
-            } else if (currentPlayers.get(nextReady) < playersPerGame - 1) {
-                currentPlayers.set(nextReady, currentPlayers.get(nextReady) + 1);
+            } else if (gamesAndRanks.get(nextReady).getVal3() < playersPerGame - 1) {
+                gamesAndRanks.get(nextReady).setVal3(gamesAndRanks.get(nextReady).getVal3() + 1);
 
-                String m = "Waiting for players [" + currentPlayers.get(nextReady) + " / " + playersPerGame + "]";
+                String m = "Waiting for players [" + gamesAndRanks.get(nextReady).getVal3() + " / " + playersPerGame + "]";
                 m += " Server #" + nextReady;
                 res += m;
                 sendMessageToPlayers(playing, m, nextReady);
                 waitingForPlayers.put(socketChannel, nextReady);
                 inQueue.remove(username);
-            } else if (currentPlayers.get(nextReady) < playersPerGame) {
+            } else if (gamesAndRanks.get(nextReady).getVal3() < playersPerGame) {
                 res += "Connected to Server #" + nextReady + "\n";
-                currentPlayers.set(nextReady, currentPlayers.get(nextReady) + 1);
+                gamesAndRanks.get(nextReady).setVal3(gamesAndRanks.get(nextReady).getVal3() + 1);
                 Iterator<Map.Entry<SocketChannel, Integer>> iterator = waitingForPlayers.entrySet().iterator();
                 while (iterator.hasNext()) {
                     Map.Entry<SocketChannel, Integer> entry = iterator.next();
@@ -405,10 +400,10 @@ public class Server implements GameCallback {
         for (SocketChannel socket : sockets) {
             usernames.add(socketToUsername(socket));
         }
-        games.get(nextReady).startGame();
-        games.get(nextReady).setGame(gameModel.clone());
-        games.get(nextReady).povoate_users(usernames);
-        threadPool.submit(games.get(nextReady));
+        gamesAndRanks.get(nextReady).getVal1().startGame();
+        gamesAndRanks.get(nextReady).getVal1().setGame(gameModel.clone());
+        gamesAndRanks.get(nextReady).getVal1().povoate_users(usernames);
+        threadPool.submit(gamesAndRanks.get(nextReady).getVal1());
     }
 
     /**
@@ -451,19 +446,37 @@ public class Server implements GameCallback {
      @return the index of the next available game server, or -1 if none is available.
      */
     private int getNextReady(String username) {
-        for (int i = 0; i < games.size(); i++) {
-            if (games.get(i).isReady()) {
-                if (ranks.get(i).equals("")) {
+
+        Comparator<Triplet<GameRunner, String, Integer>> comparator = new Comparator<Triplet<GameRunner, String, Integer>>() {
+            @Override
+            public int compare (Triplet < GameRunner, String, Integer > t1, Triplet < GameRunner, String, Integer > t2){
+                if (t1.getVal3() > t2.getVal3())
+                    return -1;
+                else if (t1.getVal3() < t2.getVal3())
+                    return 1;
+                else
+                    return 0;
+            }
+        };
+
+        ConcurrentList<Triplet<GameRunner, String, Integer>> gamesOrdered = new ConcurrentList<>();
+        gamesOrdered.addAll(gamesAndRanks);
+
+        gamesOrdered.sort(comparator);
+
+        for (int i = 0; i < gamesOrdered.size(); i++) {
+            if (gamesOrdered.get(i).getVal1().isReady()) {
+                if (gamesOrdered.get(i).getVal2().equals("")) {
                     int rank = auth.getRank(username);
                     int rank1 = rank - RELAX_MMR;
                     int rank2 = rank + RELAX_MMR;
-                    ranks.set(i, rank1 + "-" + rank2);
-                    return i;
+                    gamesOrdered.get(i).setVal2(rank1 + "-" + rank2);
+                    return gamesOrdered.get(i).getVal1().getIndex();
                 } else {
-                    String[] parts = ranks.get(i).split("-");
+                    String[] parts = gamesOrdered.get(i).getVal2().split("-");
                     int rank = auth.getRank(username);
                     if (rank >= Integer.parseInt(parts[0]) && rank <= Integer.parseInt(parts[1]))
-                        return i;
+                        return gamesOrdered.get(i).getVal1().getIndex();
                 }
             }
         }
@@ -510,10 +523,18 @@ public class Server implements GameCallback {
      - Inform the server that the game ended therefore the respective Game Runner can be used to run another Game instance
      - Update each player points, when the game finishes
      @param game The game object.
-     @param index The index of the game.
+     @param runner The associated game runner.
      */
     @Override
-    public void onUpdate(Game game, int index) {
+    public void onUpdate(Game game, GameRunner runner) {
+
+        int index = 0;
+        for (int i = 0; i < gamesAndRanks.size(); i++) {
+            if (gamesAndRanks.get(i).getVal1().equals(runner))
+                index = i;
+        }
+
+
         ArrayList<String> answers = game.getMessageForServer();
         ArrayList<String> usernames = game.getUsernameFromMessageForServer();
         HashMap<String, SocketChannel> usernameToSocket = (HashMap<String, SocketChannel>) getUsernamesToSocketChannelsForGame(index);
@@ -529,8 +550,8 @@ public class Server implements GameCallback {
                 System.out.println("Error: unable to send game messages!");
             }
 
-            currentPlayers.set(index, 0);
-            ranks.set(index, "");
+            gamesAndRanks.get(index).setVal3(0);
+            gamesAndRanks.get(index).setVal2("");
 
             for (int i = 0; i < inQueue.size(); i++) {
                 String user = inQueue.get(i);
@@ -572,7 +593,6 @@ public class Server implements GameCallback {
             }
         }
     }
-
     /**
      Sends a message to a specific SocketChannel.
      @param socketChannel The SocketChannel to send the message to.

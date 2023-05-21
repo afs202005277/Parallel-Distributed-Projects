@@ -33,6 +33,14 @@ public class GameRunner extends Thread {
     }
 
     /**
+     Gets the game index.
+     @return the game index.
+     */
+    public int getIndex() {
+        return index;
+    }
+
+    /**
      Sets the game instance to run.
      @param game The game instance to set.
      */
@@ -89,7 +97,7 @@ public class GameRunner extends Thread {
     public void run() {
         do {
             game.nextIteration();
-            gameCallback.onUpdate(game, index);
+            gameCallback.onUpdate(game, this);
             if (game.isEnded())
                 break;
             synchronized (lock) {
@@ -105,6 +113,6 @@ public class GameRunner extends Thread {
         } while (true);
         game.processEndGame();
         hasStarted = false;
-        gameCallback.onUpdate(game, index);
+        gameCallback.onUpdate(game, this);
     }
 }
