@@ -206,7 +206,7 @@ public class Server implements GameCallback {
                                             playing.remove(socketChannel);
                                             waitingForPlayers.remove(socketChannel);
                                             String m = "Waiting for players [" + currentPlayers.get(nextReady) + " / " + playersPerGame + "]";
-                                            m += " Server #" + nextReady;
+                                            m += " GameServer #" + nextReady;
                                             sendMessageToPlayers(playing, m, nextReady);
                                         } else {
                                             if (playing.containsKey(socketChannel)) {
@@ -375,7 +375,7 @@ public class Server implements GameCallback {
     }
 
     public static void main(String[] args) throws IOException {
-        Server server = new Server(1, new Game("src/ranks.txt"));
+        Server server = new Server(2, new Game("src/ranks.txt"));
         server.runServer();
     }
 
