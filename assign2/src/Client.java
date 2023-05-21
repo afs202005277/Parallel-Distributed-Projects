@@ -6,14 +6,15 @@ import java.util.Scanner;
 
 
 /**
- The Client class represents a client that connects to a server and communicates with it using SocketChannel.
- It allows the user to send messages to the server and receive responses.
+ * The Client class represents a client that connects to a server and communicates with it using SocketChannel.
+ * It allows the user to send messages to the server and receive responses.
  */
 public class Client {
     public static void main(String[] args) throws IOException, InterruptedException {
         final boolean[] play_again = {false};
         String login_command = null;
         String tmp_login_command = null;
+        boolean showWelcomeMessage = true;
         do {
             SocketChannel socketChannel = SocketChannel.open();
             socketChannel.connect(new InetSocketAddress("localhost", 8080));
@@ -60,7 +61,7 @@ public class Client {
                 buffer.clear();
                 if (message.startsWith("login")) {
                     tmp_login_command = message;
-                } else if (message.startsWith("register")){
+                } else if (message.startsWith("register")) {
                     tmp_login_command = message.replace("register", "login");
                 }
                 if (socketChannel.isConnected()) {
@@ -72,7 +73,12 @@ public class Client {
                             System.out.println(tmp.substring(0, tmp.indexOf("DISCONNECT")));
                             break;
                         }
-                        System.out.println(tmp);
+                        if (tmp.contains("Welcome to our server")) {
+                            if (showWelcomeMessage)
+                                System.out.println(tmp);
+                        } else {
+                            System.out.println(tmp);
+                        }
                         if (!tmp.startsWith("Error") && !tmp.startsWith("Usage")) {
                             if (tmp.startsWith("Login Token")) {
                                 login_command = tmp_login_command;
@@ -112,6 +118,7 @@ public class Client {
             input_thread.interrupt();
             System.out.println("Write \"again\" to play again and anything else to disconnect: ");
             input_thread.join();
+            showWelcomeMessage = false;
         } while (play_again[0]);
     }
 }
