@@ -505,7 +505,10 @@ public class Server implements GameCallback {
     }
 
     /**
-     Handles the update event for the game.
+     When the game finishes processing one iteration, this function is called to:
+     - Send the game's messages to all the clients that are playing this game
+     - Inform the server that the game ended therefore the respective Game Runner can be used to run another Game instance
+     - Update each player points, when the game finishes
      @param game The game object.
      @param index The index of the game.
      */
