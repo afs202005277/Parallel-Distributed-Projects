@@ -255,7 +255,7 @@ public class Server implements GameCallback {
                             if (canceled)
                                 socketChannel.close();
                         } else {
-                            sendMessage(socketChannel, message);
+                            sendMessage(socketChannel, "Unknown message: " + message);
                         }
                     }
                 }
