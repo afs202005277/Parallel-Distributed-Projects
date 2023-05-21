@@ -4,6 +4,11 @@ import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 import java.util.Scanner;
 
+
+/**
+ The Client class represents a client that connects to a server and communicates with it using SocketChannel.
+ It allows the user to send messages to the server and receive responses.
+ */
 public class Client {
     public static void main(String[] args) throws IOException, InterruptedException {
         final boolean[] play_again = {false};
@@ -48,6 +53,7 @@ public class Client {
                     message = login_command;
                     play_again[0] = false;
                 }
+                assert message != null;
                 buffer.put(message.getBytes());
                 buffer.flip();
                 socketChannel.write(buffer);
@@ -106,7 +112,6 @@ public class Client {
             input_thread.interrupt();
             System.out.println("Write \"again\" to play again and anything else to disconnect: ");
             input_thread.join();
-            System.in.read(new byte[System.in.available()]);
         } while (play_again[0]);
     }
 }
