@@ -105,7 +105,30 @@ public class Server implements GameCallback {
                         }
                     }
                     if (numRead == -1 || disconected) {
-                        auth.invalidateToken(clientTokens.get(socketChannel));
+                        int nextReady = -1;
+                        if (playing.containsKey(socketChannel)) nextReady = playing.get(socketChannel);
+                        else if (waitingForPlayers.containsKey(socketChannel)) nextReady = waitingForPlayers.get(socketChannel);
+
+                        if (nextReady != -1) {
+                            if (gamesAndRanks.get(nextReady).getVal3() < playersPerGame) {
+                                gamesAndRanks.get(nextReady).setVal3(Math.max(gamesAndRanks.get(nextReady).getVal3() - 1, 0));
+                                playing.remove(socketChannel);
+                                waitingForPlayers.remove(socketChannel);
+                                String m = "Waiting for players [" + gamesAndRanks.get(nextReady).getVal3() + " / " + playersPerGame + "]";
+                                m += " GameServer #" + nextReady;
+                                sendMessageToPlayers(playing, m, nextReady);
+                            } else {
+                                if (playing.containsKey(socketChannel)) {
+                                    int idx = playing.get(socketChannel);
+                                    leftInGame.put(socketToUsername(socketChannel), idx);
+                                    playing.remove(socketChannel);
+                                    waitingForPlayers.remove(socketChannel);
+                                    sendMessageToPlayers(playing, socketToUsername(socketChannel) + " has disconnected!", idx);
+                                }
+                            }
+                        }
+                        auth.invalidateToken(usernameToToken(socketToUsername(socketChannel)));
+                        clientTokens.remove(socketChannel);
                         System.out.println("Client disconnected: " + socketChannel.getRemoteAddress());
                         key.cancel();
                         socketChannel.close();
@@ -414,7 +437,7 @@ public class Server implements GameCallback {
      @throws IOException if an I/O error occurs while running the server.
      */
     public static void main(String[] args) throws IOException {
-        Server server = new Server(2, new Game());
+        Server server = new Server(1, new Game());
         server.runServer();
     }
 
