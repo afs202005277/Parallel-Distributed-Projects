@@ -38,10 +38,10 @@ public class Server implements GameCallback {
     private final ConcurrentList<String> inQueue = new ConcurrentList<>();
 
     // channel -> index of the game where player is waiting for other players
-    private final HashMap<SocketChannel, Integer> waitingForPlayers;
+    private final HashMap<SocketChannel, Integer> waitingForPlayers = new HashMap<>();
 
     // username -> index of the game where player was playing but crashed
-    private final HashMap<String, Integer> leftInGame;
+    private final HashMap<String, Integer> leftInGame = new HashMap<>();
     private final ConcurrentList<Integer> currentPlayers = new ConcurrentList<>();
 
     private final ConcurrentList<String> ranks = new ConcurrentList<>();
@@ -50,30 +50,21 @@ public class Server implements GameCallback {
         serverSocketChannel = ServerSocketChannel.open();
         serverSocketChannel.socket().bind(new InetSocketAddress(8080));
         serverSocketChannel.configureBlocking(false);
-
         threadPool = Executors.newFixedThreadPool(maxGames);
         this.gameModel = game.clone();
         for (int i = 0; i < maxGames; i++) {
             games.add(new GameRunner(gameModel.clone(), this, i));
         }
-
         selector = Selector.open();
         serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT);
-
         auth = new Authentication("src/tokens.txt", "src/users.txt", "src/ranks.txt");
-
         playersPerGame = Game.getNumPlayers();
-        waitingForPlayers = new HashMap<>();
-        leftInGame = new HashMap<>();
-
         for (int i = 0; i < maxGames; i++) {
             currentPlayers.add(0);
         }
-
         for (int i = 0; i < maxGames; i++) {
             ranks.add("");
         }
-
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             try {
                 auth.clearTokens();
@@ -83,6 +74,15 @@ public class Server implements GameCallback {
         }));
     }
 
+    /**
+     Runs the server and handles client connections and incoming messages.
+     The server continuously listens for incoming requests using non-blocking communication channels and performs the necessary actions based on the received messages.
+     It handles client login, registration and logout.
+     It also handles "help" messages and if the server receives an unknown message, it will echo it back to the sender.
+     All gameplay-related interactions are not processed by the server and are simply redirected to the respective game for processing.
+     The server periodically (10 seconds intervals) relaxes the matchmaking queue and starts the games when ready.
+     @throws IOException if an I/O error occurs while running the server.
+     */
     public void runServer() throws IOException {
         long startTime = System.nanoTime();
         while (true) {
@@ -100,7 +100,6 @@ public class Server implements GameCallback {
                     socketChannel.configureBlocking(false);
                     socketChannel.register(selector, SelectionKey.OP_READ);
                     sendMessage(socketChannel, Server.welcomeMessage);
-
                 } else if (key.isReadable()) {
                     // Data received from a client
                     SocketChannel socketChannel = (SocketChannel) key.channel();
@@ -159,7 +158,6 @@ public class Server implements GameCallback {
                                 startGame(startGameIdx);
                                 startGame = false;
                             }
-
                         } else if (message.startsWith("login")) {
                             String res;
                             String[] parts = message.split(" ");
@@ -276,11 +274,22 @@ public class Server implements GameCallback {
         }
     }
 
+    /**
+     Retrieves the username associated with the given SocketChannel.
+     @param socketChannel the SocketChannel for which to retrieve the associated username.
+     @return the username associated with the SocketChannel, or null if not found.
+     */
     private String socketToUsername(SocketChannel socketChannel) {
         String token = clientTokens.get(socketChannel);
         return tokenToUsername(token);
     }
 
+
+    /**
+     Retrieves the username associated with the given token.
+     @param token the token for which to retrieve the associated username.
+     @return the username associated with the token, or an empty string if not found.
+     */
     private String tokenToUsername(String token) {
         for (Map.Entry<String, String> entry : auth.getTokens().entrySet()) {
             if (Objects.equals(entry.getValue(), token)) {
@@ -290,6 +299,12 @@ public class Server implements GameCallback {
         return "";
     }
 
+    /**
+
+     Retrieves the token associated with the given username.
+     @param username the username for which to retrieve the associated token.
+     @return the token associated with the username, or an empty string if not found.
+     */
     private String usernameToToken(String username) {
         String token = "";
         for (Map.Entry<String, String> entry : auth.getTokens().entrySet()) {
@@ -302,6 +317,11 @@ public class Server implements GameCallback {
         return token;
     }
 
+    /**
+     Retrieves the SocketChannel associated with the given username.
+     @param username the username for which to retrieve the associated SocketChannel.
+     @return the SocketChannel associated with the username, or null if not found.
+     */
     private SocketChannel usernameToSocket(String username) {
         String token = usernameToToken(username);
         for (Map.Entry<SocketChannel, String> entry : clientTokens.entrySet()) {
@@ -312,6 +332,17 @@ public class Server implements GameCallback {
         return null;
     }
 
+    /**
+     Handles the game logic and interactions for a client.
+     Determines the appropriate actions based on the client's status, such as login, reconnection, joining the queue,
+     joining a game server, or being placed in the queue.
+     @param socketChannel the SocketChannel associated with the client.
+     @param nextReady the index of the next available game server, or -1 if none are currently available.
+     @param username the username of the client.
+     @param tok the login token associated with the client.
+     @return a message indicating the result of the game handling and any additional instructions or information for the client.
+     @throws IOException if an I/O error occurs while handling the game.
+     */
     private String gameHandling(SocketChannel socketChannel, Integer nextReady, String username, String tok) throws IOException {
         String res;
         res = "Login Token: " + tok + "\nWelcome " + username + "!\n";
@@ -362,6 +393,12 @@ public class Server implements GameCallback {
         return res;
     }
 
+    /**
+     Starts the game on the specified game server.
+     Sends a game starting message to all players on the server and initializes the game.
+     @param nextReady the index of the game server on which to start the game.
+     @throws IOException if an I/O error occurs while starting the game.
+     */
     private void startGame(Integer nextReady) throws IOException {
         List<SocketChannel> sockets = sendMessageToPlayers(playing, "Game Starting!\n" + Game.welcomeMessage, nextReady);
         List<String> usernames = new ArrayList<>();
@@ -374,11 +411,27 @@ public class Server implements GameCallback {
         threadPool.submit(games.get(nextReady));
     }
 
+    /**
+     The entry point of the server application.
+     Creates a new Server instance with the specified number of game servers and the game configuration,
+     then starts the server by calling the runServer() method.
+     @param args command-line arguments (not used).
+     @throws IOException if an I/O error occurs while running the server.
+     */
     public static void main(String[] args) throws IOException {
         Server server = new Server(2, new Game("src/ranks.txt"));
         server.runServer();
     }
 
+    /**
+     Sends a message to all players on the specified game server.
+     Returns a list of the SocketChannel instances representing the players who received the message.
+     @param clients the map of SocketChannel instances representing the connected clients, with their corresponding game server index.
+     @param message the message to send to the players.
+     @param index the index of the game server on which the players are located.
+     @return a list of SocketChannel instances representing the players who received the message.
+     @throws IOException if an I/O error occurs while sending the message.
+     **/
     private static List<SocketChannel> sendMessageToPlayers(Map<SocketChannel, Integer> clients, String message, Integer index) throws IOException {
         List<SocketChannel> sockets = new ArrayList<>();
         for (SocketChannel client : clients.keySet()) {
@@ -390,6 +443,13 @@ public class Server implements GameCallback {
         return sockets;
     }
 
+    /**
+     Retrieves the index of the next available game server that is ready to accept players.
+     If the user's rank falls within the relaxed rank range of a ready game server, that server is prioritized.
+     If no ready game server is found, -1 is returned.
+     @param username the username of the user.
+     @return the index of the next available game server, or -1 if none is available.
+     */
     private int getNextReady(String username) {
         for (int i = 0; i < games.size(); i++) {
             if (games.get(i).isReady()) {
@@ -410,6 +470,11 @@ public class Server implements GameCallback {
         return -1;
     }
 
+    /**
+     Retrieves a map of usernames to SocketChannel instances for players in a specific game server.
+     @param gameIndex the index of the game server.
+     @return a map of usernames to SocketChannel instances for players in the specified game server.
+     */
     public Map<String, SocketChannel> getUsernamesToSocketChannelsForGame(int gameIndex) {
         Map<String, SocketChannel> usernamesToSocketChannels = new HashMap<>();
         for (Map.Entry<SocketChannel, Integer> entry : playing.entrySet()) {
@@ -424,6 +489,13 @@ public class Server implements GameCallback {
         return usernamesToSocketChannels;
     }
 
+    /**
+     Sends game messages to the specified receivers.
+     @param receivers a map of usernames to SocketChannel instances representing the receivers.
+     @param usernames a list of usernames corresponding to the receivers.
+     @param messages a list of messages to be sent.
+     @throws IOException if an I/O error occurs while sending the messages.
+     */
     private static void sendGameMessages(HashMap<String, SocketChannel> receivers, List<String> usernames, List<String> messages) throws IOException {
         // receivers: username -> socketchannel
         for (int i = 0; i < usernames.size(); i++) {
@@ -432,6 +504,11 @@ public class Server implements GameCallback {
         }
     }
 
+    /**
+     Handles the update event for the game.
+     @param game The game object.
+     @param index The index of the game.
+     */
     @Override
     public void onUpdate(Game game, int index) {
         ArrayList<String> answers = game.getMessageForServer();
@@ -493,6 +570,12 @@ public class Server implements GameCallback {
         }
     }
 
+    /**
+     Sends a message to a specific SocketChannel.
+     @param socketChannel The SocketChannel to send the message to.
+     @param message The message to be sent.
+     @throws IOException If an error occurs while sending the message.
+     */
     public static void sendMessage(SocketChannel socketChannel, String message) throws IOException {
         buffer.put(0, new byte[buffer.limit()]);
         buffer = encoder.encode(CharBuffer.wrap(message));
