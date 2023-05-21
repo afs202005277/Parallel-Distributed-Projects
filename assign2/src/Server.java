@@ -15,7 +15,7 @@ import java.util.concurrent.Executors;
 public class Server implements GameCallback {
     public static final int BUFFER_SIZE = 4096;
     private final static int RELAX_MMR = 50;
-    private final static int RELAX_AFTER_TIME = 10000; // time before relaxing the queue in ms
+    private final static int RELAX_AFTER_TIME = 10000;
     public final static String welcomeMessage = "Welcome to our server!\nPlease login or register a new account.\nIf you need any help, you can just send the \"help\" message.";
     private final static CharsetEncoder encoder = (StandardCharsets.UTF_8).newEncoder();
     private static ByteBuffer buffer = ByteBuffer.allocate(BUFFER_SIZE);
@@ -54,7 +54,7 @@ public class Server implements GameCallback {
         }
         selector = Selector.open();
         serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT);
-        auth = new Authentication("src/tokens.txt", "src/users.txt", "src/ranks.txt");
+        auth = new Authentication("src/users.txt", "src/ranks.txt");
         playersPerGame = Game.getNumPlayers();
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             try {

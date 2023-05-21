@@ -8,7 +8,6 @@ public class Authentication {
 
     //username -> rank
     private final ConcurrentHashMap<String, Integer> ranks = new ConcurrentHashMap<>();
-    private final String tokensFileName;
     private final String usersFileName;
 
     private final String rankFileName;
@@ -20,17 +19,28 @@ public class Authentication {
     /**
      * Constructs an Authentication object with the specified file names for tokens, users, and ranks.
      *
-     * @param filename       The file name for tokens.
      * @param usersFileName  The file name for users.
      * @param rankFileName   The file name for ranks.
      * @throws IOException  If an error occurs while loading the tokens or ranks from files.
      */
-    public Authentication(String filename, String usersFileName, String rankFileName) throws IOException {
-        this.tokensFileName = filename;
+    public Authentication(String usersFileName, String rankFileName) throws IOException {
         this.usersFileName = usersFileName;
         this.rankFileName = rankFileName;
-        loadTokensFromFile();
+
+        createFileIfNotExists(usersFileName);
+        createFileIfNotExists(rankFileName);
+
         loadRanksFromFile();
+    }
+
+    private void createFileIfNotExists(String fileName) throws IOException {
+        File file = new File(fileName);
+        if (!file.exists()) {
+            boolean created = file.createNewFile();
+            if (!created) {
+                throw new IOException("Failed to create file: " + fileName);
+            }
+        }
     }
 
     /**
@@ -76,23 +86,6 @@ public class Authentication {
     }
 
     /**
-     * Loads and stores the tokens from the tokens file into a hashmap.
-     *
-     * @throws IOException  If an error occurs while reading the tokens file.
-     */
-    private void loadTokensFromFile() throws IOException {
-        BufferedReader reader = new BufferedReader(new FileReader(tokensFileName));
-        String line;
-        while ((line = reader.readLine()) != null) {
-            String[] parts = line.split(":");
-            if (parts.length == 2) {
-                tokens.put(parts[0], parts[1]);
-            }
-        }
-        reader.close();
-    }
-
-    /**
      * Creates an access token for the specified username.
      *
      * @param username  The username.
@@ -102,7 +95,6 @@ public class Authentication {
     public String createToken(String username) throws IOException {
         String token = UUID.randomUUID().toString();
         tokens.put(username, token);
-        saveTokensToFile();
         saveRanksToFile();
         return token;
     }
@@ -139,7 +131,6 @@ public class Authentication {
      */
     public void clearTokens() throws IOException{
         tokens.clear();
-        saveTokensToFile();
         saveRanksToFile();
     }
 
@@ -159,7 +150,6 @@ public class Authentication {
         }
         if (username != null) {
             tokens.remove(username);
-            saveTokensToFile();
             saveRanksToFile();
         }
     }
@@ -211,19 +201,6 @@ public class Authentication {
         ranks.put(username, 500); //Starting rank
 
         return this.createToken(username);
-    }
-
-    /**
-     * Saves the tokens map to the tokens file.
-     *
-     * @throws IOException  If an error occurs while writing to the tokens file.
-     */
-    private void saveTokensToFile() throws IOException {
-        BufferedWriter writer = new BufferedWriter(new FileWriter(tokensFileName));
-        for (String key : tokens.keySet()) {
-            writer.write(key + ":" + tokens.get(key) + "\n");
-        }
-        writer.close();
     }
 
     /**

@@ -1,7 +1,0 @@
-playing -> Done
-currentPlayers -> Done
-ranks -> Done
-inQueue -> Done
-auth -> Done
-clientTokens -> Done
-games (por causa do getNextReady) -> Done
