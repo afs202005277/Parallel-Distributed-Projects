@@ -11,8 +11,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.ReentrantLock;
 
 public class Server implements GameCallback {
     public static final int BUFFER_SIZE = 4096;
@@ -216,7 +214,7 @@ public class Server implements GameCallback {
                                                 leftInGame.put(username, idx);
                                                 playing.remove(socketChannel);
                                                 waitingForPlayers.remove(socketChannel);
-                                                sendMessageToPlayers(playing, username + " has disconected!", idx);
+                                                sendMessageToPlayers(playing, username + " has disconnected!", idx);
                                             }
                                         }
                                     }
@@ -253,8 +251,7 @@ public class Server implements GameCallback {
                         ranks.set(i, rank_left + "-" + rank_right);
 
 
-                        for (int j = 0; j < inQueue.size(); j++) {
-                            String username = inQueue.get(j);
+                        for (String username : inQueue) {
                             SocketChannel socketChannel = usernameToSocket(username);
                             if (socketChannel != null) {
                                 Integer nextReady = getNextReady(username);
@@ -393,16 +390,6 @@ public class Server implements GameCallback {
         return sockets;
     }
 
-    private static void updateQueue(Map<SocketChannel, Integer> clients) throws IOException {
-        int i = 1;
-        for (SocketChannel client : clients.keySet()) {
-            String m = "Position in Queue: " + i;
-            clients.replace(client, i);
-            sendMessage(client, m);
-            i++;
-        }
-    }
-
     private int getNextReady(String username) {
         for (int i = 0; i < games.size(); i++) {
             if (games.get(i).isReady()) {
@@ -479,10 +466,12 @@ public class Server implements GameCallback {
                 int next = getNextReady(user);
                 try {
                     String res = gameHandling(client, next, user, token);
-                    sendMessage(client, res);
-                    if (startGame) {
-                        startGame(startGameIdx);
-                        startGame = false;
+                    if (client != null){
+                        sendMessage(client, res);
+                        if (startGame) {
+                            startGame(startGameIdx);
+                            startGame = false;
+                        }
                     }
                 } catch (IOException e) {
                     System.out.println("Error: Unable to send messages to clients!");
