@@ -275,7 +275,8 @@ public class Server implements GameCallback {
                         gamesAndRanks.get(i).setVal2(rank_left + "-" + rank_right);
 
 
-                        for (String username : inQueue) {
+                        for (int j=0;j<inQueue.size();j++) {
+                            String username = inQueue.get(j);
                             SocketChannel socketChannel = usernameToSocket(username);
                             if (socketChannel != null) {
                                 Integer nextReady = getNextReady(username);
