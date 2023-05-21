@@ -20,7 +20,6 @@ public class Client {
             Thread input_thread = new Thread(() -> {
                 while (true) {
                     String line = null;
-
                     try {
                         if (scanner.hasNextLine()) {
                             line = scanner.nextLine();

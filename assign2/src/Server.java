@@ -419,7 +419,7 @@ public class Server implements GameCallback {
      @throws IOException if an I/O error occurs while running the server.
      */
     public static void main(String[] args) throws IOException {
-        Server server = new Server(2, new Game("src/ranks.txt"));
+        Server server = new Server(2, new Game());
         server.runServer();
     }
 

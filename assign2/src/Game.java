@@ -14,8 +14,6 @@ public class Game implements Cloneable {
 
     private final List<Triplet<Integer, String, String>> gameLogicValues;
 
-    private String fileName;
-
     private ArrayList<String> message_for_server;
     private ArrayList<String> username_message_for_server;
 
@@ -26,24 +24,42 @@ public class Game implements Cloneable {
 
     private ArrayList<String> username_message;
     private ArrayList<String> messages;
-
     private int iterations;
 
+    /**
+     * Gets the game over message.
+     *
+     * @return The game over message.
+     */
     public static String getGameOverMessage() {
         return game_over_message;
     }
 
+    /**
+     * Checks if the game has ended.
+     *
+     * @return true if the game has ended, false otherwise.
+     */
     public boolean isEnded() {
         return iterations >= Game.interactions_before_end_game;
     }
 
+    /**
+     * Stores the message into the "messages" list, as well as the username of the client who sent it.
+     * The purpose of this function is to make the connection between the server and the game.
+     * @param username  The username of the player.
+     * @param message   The message sent by the player.
+     */
     public void sendMessage(String username, String message) {
         username_message.add(username);
         messages.add(message);
     }
 
-    public Game(String fileName) {
-        this.fileName = fileName;
+    /**
+     * Creates a new Game instance.
+     * Also instantiates the values of the gameLogic hashmaps with the different game actions and respective probabilities.
+     */
+    public Game() {
         iterations = 0;
         message_for_server = new ArrayList<>();
         username_message_for_server = new ArrayList<>();
@@ -79,16 +95,29 @@ public class Game implements Cloneable {
 
     }
 
+    /**
+     * Populates the list of usernames for the game.
+     *
+     * @param usernames  The list of usernames.
+     */
     public void populateUsers(List<String> usernames) {
         this.usernames = (ArrayList<String>) usernames;
         for (int i = 0; i < usernames.size(); i++)
             this.usernames_points.add(0);
     }
 
+    /**
+     Gets the number of players in the game.
+     @return The number of players.
+     */
     public static int getNumPlayers() {
         return numPlayers;
     }
 
+    /**
+     Advances the game to the next iteration.
+     Executes game logic for pending messages until the game ends or there are no more messages.
+     */
     public void nextIteration() {
         while (!this.messages.isEmpty() && !isEnded()) {
             iterations++;
@@ -98,6 +127,11 @@ public class Game implements Cloneable {
         }
     }
 
+    /**
+     Processes the end of the game.
+     Adjusts the scores of the players based on the game score.
+     Generate messages for each player with their final score.
+     */
     public void processEndGame() {
         for (int i = 0; i < usernames_points.size(); i++) {
             if (game_score < 0 && i < numPlayers / 2) {
@@ -114,23 +148,43 @@ public class Game implements Cloneable {
         }
     }
 
+    /**
+     Retrieves the messages generated for the server.
+     Clears the message list after retrieval.
+     @return The messages for the server.
+     */
     public ArrayList<String> getMessageForServer() {
         ArrayList<String> res = new ArrayList<>(message_for_server);
         message_for_server.clear();
         return res;
     }
 
+    /**
+     Retrieves the usernames associated with the messages generated for the server.
+     Clears the username list after retrieval.
+     @return The usernames associated with the messages.
+     */
     public ArrayList<String> getUsernameFromMessageForServer() {
         ArrayList<String> res = new ArrayList<>(username_message_for_server);
         username_message_for_server.clear();
         return res;
     }
 
+    /**
+     Adds the given score to the specified user's points.
+     @param username The username of the player.
+     @param addition The score to be added.
+     */
     private void addScore(String username, int addition) {
         int i = usernames.indexOf(username);
         usernames_points.set(i, usernames_points.get(i) + addition);
     }
 
+    /**
+     Executes the game logic for the given player's message.
+     Determines the outcome of the message based on probabilities and updates scores accordingly.
+     @param username The username of the player.
+     */
     private void gameLogic(String username) {
         double random = (new Random()).nextFloat();
         String message_action_user = "";
@@ -160,11 +214,14 @@ public class Game implements Cloneable {
         }
     }
 
+    /**
+     Creates a deep copy of the current Game object.
+     @return A clone of the Game object.
+     */
     @Override
     public Game clone() {
         try {
             Game clone = (Game) super.clone();
-            clone.fileName = fileName;
             clone.iterations = 0;
             clone.message_for_server = new ArrayList<>();
             clone.username_message_for_server = new ArrayList<>();
