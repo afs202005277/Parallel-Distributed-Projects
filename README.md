@@ -1,4 +1,4 @@
-# Project Repository
+# Parallel-Distributed-Projects
 
 ## Overview
 This repository contains two projects developed as part of coursework for the Parallel and Distributed Computing (CPD) course at the Faculty of Engineering of the University of Porto. The projects focus on different aspects of distributed computing and performance evaluation.
